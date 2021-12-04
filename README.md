@@ -1,105 +1,74 @@
-<p align="center">
-  <a href="https://github.com/actions/typescript-action/actions"><img alt="typescript-action status" src="https://github.com/actions/typescript-action/workflows/build-test/badge.svg"></a>
-</p>
+# AWS Static Stack GitHub Action
 
-# Create a JavaScript Action using TypeScript
+A GitHub Action to deploy your static website to the AWS Edge 🔥.
 
-Use this template to bootstrap the creation of a TypeScript action.:rocket:
+Includes:
 
-This template includes compilation support, tests, a validation workflow, publishing, and versioning guidance.  
+- S3 for hosting files
+- Cloudfront for Edge caching
+- Caching headers configured correctly
+- AWS Stack create/update (via CloudFormation)
+- Preview websites (eg branchname.preview.example.com)
 
-If you are new, there's also a simpler introduction.  See the [Hello World JavaScript Action](https://github.com/actions/hello-world-javascript-action)
+## Usage
 
-## Create an action from this template
+First you need to create a new certificate for your root and preview hosts. This is a manual step as it requires manual validation.
 
-Click the `Use this Template` and provide the new repo details for your action
+Open the [AWS Certificate Manager](https://console.aws.amazon.com/acm/home?region=us-east-1) and Request a new public certificate for the following domains:
 
-## Code in Main
+- `example.com`
+- `*.example`
+- `*.preview.example.com`
 
-> First, you'll need to have a reasonably modern version of `node` handy. This won't work with versions older than 9, for instance.
-
-Install the dependencies  
-```bash
-$ npm install
-```
-
-Build the typescript and package it for distribution
-```bash
-$ npm run build && npm run package
-```
-
-Run the tests :heavy_check_mark:  
-```bash
-$ npm test
-
- PASS  ./index.test.js
-  ✓ throws invalid number (3ms)
-  ✓ wait 500 ms (504ms)
-  ✓ test runs (95ms)
-
-...
-```
-
-## Change action.yml
-
-The action.yml defines the inputs and output for your action.
-
-Update the action.yml with your name, description, inputs and outputs for your action.
-
-See the [documentation](https://help.github.com/en/articles/metadata-syntax-for-github-actions)
-
-## Change the Code
-
-Most toolkit and CI/CD operations involve async operations so the action is run in an async function.
-
-```javascript
-import * as core from '@actions/core';
-...
-
-async function run() {
-  try { 
-      ...
-  } 
-  catch (error) {
-    core.setFailed(error.message);
-  }
-}
-
-run()
-```
-
-See the [toolkit documentation](https://github.com/actions/toolkit/blob/master/README.md#packages) for the various packages.
-
-## Publish to a distribution branch
-
-Actions are run from GitHub repos so we will checkin the packed dist folder. 
-
-Then run [ncc](https://github.com/zeit/ncc) and push the results:
-```bash
-$ npm run package
-$ git add dist
-$ git commit -a -m "prod dependencies"
-$ git push origin releases/v1
-```
-
-Note: We recommend using the `--license` option for ncc, which will create a license file for all of the production node modules used in your project.
-
-Your action is now published! :rocket: 
-
-See the [versioning documentation](https://github.com/actions/toolkit/blob/master/docs/action-versioning.md)
-
-## Validate
-
-You can now validate the action by referencing `./` in a workflow in your repo (see [test.yml](.github/workflows/test.yml))
+Once the certificate is created, copy the Certificate ARN and use it configure the action:
 
 ```yaml
-uses: ./
-with:
-  milliseconds: 1000
+steps:
+  - uses: actions/checkout@v2
+  - name: Configure AWS Credentials
+    uses: aws-actions/configure-aws-credentials@v1
+    with:
+      aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      aws-region: us-east-1
+  - uses: ./
+    with:
+      cfStackName: 'static-example-richardwillis-cloudformation-stack'
+      s3BucketName: 'static-example-richardwillis-info-us-east-1'
+      s3AllowedOrigins: 'https://example.com'
+      rootCloudFrontHosts: 'example.com'
+      previewCloudFrontHosts: '*.preview.example.com'
+      cacheCorsPathPattern: '/_next/*'
+      certificateARN: 'arn:aws:acm:us-east-1:1234567:certificate/123abc-123abc-1234-5678-abcdef'
 ```
 
-See the [actions tab](https://github.com/actions/typescript-action/actions) for runs of this action! :rocket:
+## Caching Strategy
 
-## Usage:
+- Immutable static files (eg images, JavaScript, CSS etc) are cached by both the browser and the Edge for 1 year. (Files can only be immutable if they do not change and typically use hashed filenames.)
+- Mutable HTML files are cached by the Edge for 1 year, but never cached in the browser.
+- Edge cache is invalidated on new deployments for changed HTML files.
 
-After testing you can [create a v1 tag](https://github.com/actions/toolkit/blob/master/docs/action-versioning.md) to reference the stable and latest V1 action
+## AWS Stack Overview
+
+### S3
+
+A single S3 bucket is used to host both the root and preview websites with the following directory structure:
+
+```console
+├── preview/
+│   └── branchname/
+└── root/
+```
+
+### Edge Lambda
+
+An edge lambda is used to route preview requests to the correct location in S3.
+
+### CloudFront
+
+2 CloudFront distributions are used:
+
+1. For serving the root domain, eg example.com
+2. For serving the preview domain, eg branchname.preview.example.com
+
+2 distributions are required to ensure the fastest possible edge caching for the root domain, as an Edge Lambda is used for preview sites.

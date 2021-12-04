@@ -30299,61 +30299,10 @@ var __webpack_exports__ = {};
 // This entry need to be wrapped in an IIFE because it need to be isolated against other modules in the chunk.
 (() => {
 
-;// CONCATENATED MODULE: external "node:fs"
-const external_node_fs_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:fs");
-;// CONCATENATED MODULE: external "node:path"
-const external_node_path_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:path");
 // EXTERNAL MODULE: ./node_modules/@actions/core/lib/core.js
 var core = __nccwpck_require__(2186);
-// EXTERNAL MODULE: ./node_modules/@aws-sdk/client-cloudformation/dist-cjs/index.js
-var dist_cjs = __nccwpck_require__(5650);
-;// CONCATENATED MODULE: ./lib/ansi.js
-const green = '\u001b[32m';
+;// CONCATENATED MODULE: ./lib/github.js
 
-;// CONCATENATED MODULE: ./lib/main.js
-
-
-
-
-
-const cfTemplateBody = external_node_fs_namespaceObject.readFileSync(external_node_path_namespaceObject.resolve('cloudformation', 's3bucket_with_cloudfront.yml'), 'utf8');
-async function getAllStacks(client, nextToken, allStacks = []) {
-    const command = new dist_cjs.ListStacksCommand({
-        NextToken: nextToken,
-    });
-    const response = await client.send(command);
-    const stacks = allStacks.concat(response.StackSummaries || []);
-    if (response.NextToken) {
-        return getAllStacks(client, response.NextToken, stacks);
-    }
-    (0,core.debug)(`Found ${stacks.length} stacks`);
-    return stacks;
-}
-async function getExistingStack(client, cfStackName) {
-    (0,core.debug)(`Searching for existing stack with name: ${cfStackName}`);
-    const allStacks = await getAllStacks(client);
-    return allStacks.find((stack) => stack.StackName === cfStackName);
-}
-async function hasCreatedStack(client, cfStackName) {
-    const stack = await getExistingStack(client, cfStackName);
-    return stack !== undefined;
-}
-async function updateExistingStack(client, cfStackName) {
-    (0,core.notice)(`${green}Updating existing stack, this can take a while...`);
-    // const command = new UpdateStackCommand({
-    //   StackName: cfStackName,
-    //   TemplateBody: cfTemplateBody,
-    // });
-    // return client.send(command);
-}
-async function createNewStack(client, cfStackName) {
-    (0,core.notice)('\u001b[32mCreating new stack, this can take a while...');
-    // const command = new CreateStackCommand({
-    //   StackName: cfStackName,
-    //   TemplateBody: cfTemplateBody,
-    // });
-    // return client.send(command);
-}
 function getInputs() {
     const cfStackName = (0,core.getInput)('cfStackName', {
         required: true,
@@ -30393,25 +30342,255 @@ function getInputs() {
         certificateARN,
     };
 }
+
+;// CONCATENATED MODULE: external "node:fs"
+const external_node_fs_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:fs");
+;// CONCATENATED MODULE: external "node:path"
+const external_node_path_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:path");
+// EXTERNAL MODULE: ./node_modules/@aws-sdk/client-cloudformation/dist-cjs/index.js
+var dist_cjs = __nccwpck_require__(5650);
+;// CONCATENATED MODULE: ./lib/logging.js
+
+
+let statusLogs = {};
+function logStatus(status) {
+    if (!(status in statusLogs)) {
+        statusLogs[status] = true;
+        if (status === String(dist_cjs.StackStatus.ROLLBACK_IN_PROGRESS)) {
+            (0,core.warning)(`${dist_cjs.StackStatus.ROLLBACK_IN_PROGRESS} detected! **Check the CloudFormation events in the AWS Console for more information.** ` +
+                `${dist_cjs.StackStatus.ROLLBACK_IN_PROGRESS} can take a while to complete. ` +
+                `You can manually delete the CloudFormation stack in the AWS Console or just wait until this process completes...`);
+        }
+        (0,core.info)(status);
+    }
+}
+function resetStatusLogs() {
+    statusLogs = {};
+}
+
+;// CONCATENATED MODULE: ./lib/ansi.js
+const yellow = '\u001b[33m';
+const green = '\u001b[32m';
+const red = '\u001b[31m';
+const ansi_reset = '\u001b[0m';
+
+;// CONCATENATED MODULE: ./lib/aws.js
+
+
+
+
+
+
+const defaultProgressDelayMs = 3000;
+const cfTemplateBody = external_node_fs_namespaceObject.readFileSync(external_node_path_namespaceObject.resolve('cloudformation', 's3bucket_with_cloudfront.yml'), 'utf8');
+function delay(delayMs) {
+    return new Promise((resolve) => {
+        setTimeout(resolve, delayMs);
+    });
+}
+function getCfParameters(cfProjectName, s3BucketName, s3AllowedOrigins, rootCloudFrontHosts, previewCloudFrontHosts, cacheCorsPathPattern, certificateARN, lambdaVersion) {
+    return [
+        {
+            ParameterKey: 'ProjectName',
+            ParameterValue: cfProjectName,
+        },
+        {
+            ParameterKey: 'S3BucketName',
+            ParameterValue: s3BucketName,
+        },
+        {
+            ParameterKey: 'S3AllowedOrigins',
+            ParameterValue: s3AllowedOrigins,
+        },
+        {
+            ParameterKey: 'RootCloudFrontHosts',
+            ParameterValue: rootCloudFrontHosts,
+        },
+        {
+            ParameterKey: 'PreviewCloudFrontHosts',
+            ParameterValue: previewCloudFrontHosts,
+        },
+        {
+            ParameterKey: 'CacheCorsPathPattern',
+            ParameterValue: cacheCorsPathPattern,
+        },
+        {
+            ParameterKey: 'CertificateARN',
+            ParameterValue: certificateARN,
+        },
+        {
+            ParameterKey: 'LambdaVersion',
+            ParameterValue: lambdaVersion,
+        },
+    ];
+}
+async function getAllStacks(client, nextToken, allStacks = []) {
+    const command = new dist_cjs.ListStacksCommand({
+        NextToken: nextToken,
+    });
+    const response = await client.send(command);
+    const stacks = allStacks.concat(response.StackSummaries || []);
+    if (response.NextToken) {
+        return getAllStacks(client, response.NextToken, stacks);
+    }
+    (0,core.debug)(`Found ${stacks.length} stacks`);
+    return stacks;
+}
+async function getExistingStack(client, cfStackName) {
+    (0,core.debug)(`Searching for existing stack with name: ${cfStackName}`);
+    const allStacks = await getAllStacks(client);
+    return allStacks.find((stack) => stack.StackName === cfStackName &&
+        stack.StackStatus !== dist_cjs.StackStatus.DELETE_COMPLETE);
+}
+async function hasCreatedStack(client, cfStackName) {
+    const stack = await getExistingStack(client, cfStackName);
+    return stack !== undefined;
+}
+async function updateExistingStack(client, cfStackName, parameters) {
+    (0,core.info)(`Updating existing stack, this can take a while...`);
+    const command = new dist_cjs.UpdateStackCommand({
+        StackName: cfStackName,
+        TemplateBody: cfTemplateBody,
+    });
+    return client.send(command);
+}
+async function createNewStack(client, cfStackName, parameters) {
+    (0,core.info)(`Creating new stack, this can take a while...`);
+    const command = new dist_cjs.CreateStackCommand({
+        StackName: cfStackName,
+        TemplateBody: cfTemplateBody,
+        Parameters: parameters,
+        Capabilities: [dist_cjs.Capability.CAPABILITY_IAM],
+    });
+    await client.send(command);
+    const status = await waitForCompleteOrFailed(client, cfStackName);
+    if (status !== String(dist_cjs.StackStatus.CREATE_COMPLETE)) {
+        throw new Error('Stack creation failed');
+    }
+    (0,core.notice)(`${green}Stack ${cfStackName} successfully created`);
+}
+async function waitForStackState(client, cfStackName, status, delayMs = defaultProgressDelayMs) {
+    try {
+        const stack = await describeStack(client, cfStackName);
+        const stackStatus = String(stack.StackStatus);
+        logStatus(stackStatus);
+        if (stackStatus !== status) {
+            await delay(delayMs);
+            await waitForStackState(client, cfStackName, status, delayMs);
+        }
+    }
+    catch (e) {
+        (0,core.debug)(`Unable to wait for status ${status} because ${e.message}`);
+    }
+    finally {
+        resetStatusLogs();
+    }
+}
+async function describeStack(client, cfStackName) {
+    var _a;
+    const describeStacksCommand = new dist_cjs.DescribeStacksCommand({
+        StackName: cfStackName,
+    });
+    const response = await client.send(describeStacksCommand);
+    if (!((_a = response.Stacks) === null || _a === void 0 ? void 0 : _a.length)) {
+        throw new Error('Stack not found');
+    }
+    return response.Stacks[0];
+}
+async function waitForCompleteOrFailed(client, cfStackName, delayMs = defaultProgressDelayMs, completeOrFailedStatuses = [
+    String(dist_cjs.StackStatus.CREATE_COMPLETE),
+    String(dist_cjs.StackStatus.CREATE_FAILED),
+    String(dist_cjs.StackStatus.DELETE_COMPLETE),
+    String(dist_cjs.StackStatus.DELETE_FAILED),
+    String(dist_cjs.StackStatus.IMPORT_COMPLETE),
+    String(dist_cjs.StackStatus.IMPORT_ROLLBACK_COMPLETE),
+    String(dist_cjs.StackStatus.IMPORT_ROLLBACK_FAILED),
+    String(dist_cjs.StackStatus.ROLLBACK_COMPLETE),
+    String(dist_cjs.StackStatus.ROLLBACK_FAILED),
+    String(dist_cjs.StackStatus.UPDATE_COMPLETE),
+    String(dist_cjs.StackStatus.UPDATE_FAILED),
+    String(dist_cjs.StackStatus.UPDATE_ROLLBACK_COMPLETE),
+    String(dist_cjs.StackStatus.UPDATE_ROLLBACK_FAILED),
+]) {
+    var _a;
+    try {
+        const describeStacksCommand = new dist_cjs.DescribeStacksCommand({
+            StackName: cfStackName,
+        });
+        const response = await client.send(describeStacksCommand);
+        if (!((_a = response.Stacks) === null || _a === void 0 ? void 0 : _a.length)) {
+            throw new Error('Stack not found');
+        }
+        const stack = await describeStack(client, cfStackName);
+        const status = String(stack.StackStatus);
+        logStatus(status);
+        if (!completeOrFailedStatuses.includes(status)) {
+            await delay(delayMs);
+            return await waitForCompleteOrFailed(client, cfStackName, delayMs);
+        }
+        return status;
+    }
+    catch (e) {
+        throw e;
+    }
+    finally {
+        resetStatusLogs();
+    }
+}
+async function deleteExistingStack(client, cfStackName) {
+    const command = new dist_cjs.DeleteStackCommand({
+        StackName: cfStackName,
+    });
+    await client.send(command);
+    await waitForStackState(client, cfStackName, String(dist_cjs.StackStatus.DELETE_COMPLETE));
+    (0,core.notice)(`${green}Stack ${cfStackName} successfully deleted${ansi_reset}`);
+}
+async function shouldDeleteExistingStack(client, cfStackName) {
+    const stack = await describeStack(client, cfStackName);
+    return stack.StackStatus === dist_cjs.StackStatus.ROLLBACK_COMPLETE;
+}
+async function createOrUpdateStack(cfStackName, parameters) {
+    const client = new dist_cjs.CloudFormationClient({ region: 'us-east-1' });
+    const hasExistingStack = await hasCreatedStack(client, cfStackName);
+    (0,core.debug)(`Found existing stack: ${String(hasExistingStack)}`);
+    (0,core.debug)(`Using parameters: ${parameters
+        .map((p) => `${p.ParameterKey}: ${p.ParameterValue}`)
+        .join(', ')}`);
+    let update = false;
+    if (hasExistingStack) {
+        const shouldDelete = await shouldDeleteExistingStack(client, cfStackName);
+        if (shouldDelete) {
+            (0,core.warning)(`Deleting existing stack ${cfStackName}, due to ${dist_cjs.StackStatus.ROLLBACK_COMPLETE} status`);
+            await deleteExistingStack(client, cfStackName);
+        }
+        else {
+            update = true;
+        }
+    }
+    if (update) {
+        await updateExistingStack(client, cfStackName, parameters);
+    }
+    else {
+        await createNewStack(client, cfStackName, parameters);
+    }
+}
+
+;// CONCATENATED MODULE: ./lib/main.js
+
+
+
+
 async function run() {
     try {
         const inputs = getInputs();
-        const client = new dist_cjs.CloudFormationClient({ region: 'us-east-1' });
-        const hasExistingStack = await hasCreatedStack(client, inputs.cfStackName);
-        (0,core.debug)(`Found existing stack: ${String(hasExistingStack)}`);
-        if (hasExistingStack) {
-            await updateExistingStack(client, inputs.cfStackName);
-        }
-        else {
-            await createNewStack(client, inputs.cfStackName);
-        }
+        const lambdaVersion = '1-0-0';
+        const parameters = getCfParameters(inputs.cfStackName, inputs.s3BucketName, inputs.s3AllowedOrigins, inputs.rootCloudFrontHosts, inputs.previewCloudFrontHosts, inputs.cacheCorsPathPattern, inputs.certificateARN, lambdaVersion);
+        await createOrUpdateStack(inputs.cfStackName, parameters);
     }
     catch (error) {
         if (error instanceof Error) {
-            (0,core.setFailed)(error.message);
+            (0,core.setFailed)(`${red}${error.message}${ansi_reset}`);
         }
-    }
-    finally {
     }
 }
 void run();

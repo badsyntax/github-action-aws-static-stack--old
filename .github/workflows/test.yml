@@ -31,10 +31,10 @@ jobs:
           aws-region: us-east-1
       - uses: ./
         with:
-          cfStackName: 'example-com-static-cloudformation-stack'
-          s3BucketName: 'example.com-us-east-1'
-          s3AllowedOrigins: 'https://example.com, https://*.preview.example.com'
-          rootCloudFrontHosts: 'example.com'
-          previewCloudFrontHosts: '*.preview.example.com'
+          cfStackName: 'static-example-richardwillis-cloudformation-stack'
+          s3BucketName: 'static-example-richardwillis-info-us-east-1'
+          s3AllowedOrigins: 'https://static-example.richardwillis.info'
+          rootCloudFrontHosts: 'static-example.richardwillis.info'
+          previewCloudFrontHosts: '*.preview.static-example.richardwillis.info'
           cacheCorsPathPattern: '/_next/*'
-          certificateARN: 'arn:aws:acm:us-east-1:1234567:certificate/123abc-123abc-1234-5678-abcdef'
+          certificateARN: 'arn:aws:acm:us-east-1:008215002370:certificate/39df7626-7d2f-42e9-94f4-a3ce61ca3d5e'
