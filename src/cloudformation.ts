@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import github from '@actions/github';
 import { debug, info, notice, warning } from '@actions/core';
+import { markdownTable } from 'markdown-table';
 import {
   Parameter,
   CloudFormationClient,
@@ -14,15 +16,62 @@ import {
   DescribeStacksCommand,
   DeleteStackCommand,
   Stack,
+  CreateChangeSetCommand,
+  ChangeSetType,
+  DescribeChangeSetCommand,
+  Change,
+  ChangeSetStatus,
+  CreateChangeSetCommandOutput,
+  DeleteChangeSetCommand,
+  DeleteChangeSetCommandOutput,
 } from '@aws-sdk/client-cloudformation';
-import { logStatus, resetStatusLogs } from './logging.js';
 
-const defaultProgressDelayMs = 3000;
+const defaultDelayMs = 3000;
 
 const cfTemplateBody = fs.readFileSync(
   path.resolve('cloudformation', 's3bucket_with_cloudfront.yml'),
   'utf8'
 );
+
+type logMap = {
+  [key: string]: boolean;
+};
+
+const logs: {
+  [key: string]: logMap;
+} = {
+  stackStatusLogs: {},
+  changeSetStatusLogs: {},
+};
+
+function logStackStatus(status: string): void {
+  if (!(status in logs.stackStatusLogs)) {
+    logs.stackStatusLogs[status] = true;
+    if (status === String(StackStatus.ROLLBACK_IN_PROGRESS)) {
+      warning(
+        `${StackStatus.ROLLBACK_IN_PROGRESS} detected! **Check the CloudFormation events in the AWS Console for more information.** ` +
+          `${StackStatus.ROLLBACK_IN_PROGRESS} can take a while to complete. ` +
+          `You can manually delete the CloudFormation stack in the AWS Console or just wait until this process completes...`
+      );
+    }
+    info(`Stack Status: ${status}`);
+  }
+}
+
+function resetStatusLogs(): void {
+  logs.stackStatusLogs = {};
+}
+
+function logChangeSetStatus(status: string): void {
+  if (!(status in logs.changeSetStatusLogs)) {
+    logs.changeSetStatusLogs[status] = true;
+    info(`ChangeSet: ${status}`);
+  }
+}
+
+function resetChangeSetStatusLogs(): void {
+  logs.changeSetStatusLogs = {};
+}
 
 function delay(delayMs: number): Promise<void> {
   return new Promise((resolve) => {
@@ -152,12 +201,12 @@ export async function waitForStackStatus(
   client: CloudFormationClient,
   cfStackName: string,
   status: string,
-  delayMs = defaultProgressDelayMs
+  delayMs = defaultDelayMs
 ): Promise<void> {
   try {
     const stack = await describeStack(client, cfStackName);
     const stackStatus = String(stack.StackStatus);
-    logStatus(stackStatus);
+    logStackStatus(stackStatus);
     if (stackStatus !== status) {
       await delay(delayMs);
       await waitForStackStatus(client, cfStackName, status, delayMs);
@@ -189,7 +238,7 @@ export async function describeStack(
 export async function waitForCompleteOrFailed(
   client: CloudFormationClient,
   cfStackName: string,
-  delayMs = defaultProgressDelayMs,
+  delayMs = defaultDelayMs,
   completeOrFailedStatuses = [
     String(StackStatus.CREATE_COMPLETE),
     String(StackStatus.CREATE_FAILED),
@@ -209,7 +258,7 @@ export async function waitForCompleteOrFailed(
   try {
     const stack = await describeStack(client, cfStackName);
     const status = String(stack.StackStatus);
-    logStatus(status);
+    logStackStatus(status);
     if (!completeOrFailedStatuses.includes(status)) {
       await delay(delayMs);
       return await waitForCompleteOrFailed(client, cfStackName, delayMs);
@@ -249,12 +298,98 @@ export async function shouldDeleteExistingStack(
   return stack.StackStatus === StackStatus.ROLLBACK_COMPLETE;
 }
 
-export async function createOrUpdateStack(
+export async function createChangeSet(
+  client: CloudFormationClient,
   cfStackName: string,
+  changeSetType: ChangeSetType,
   parameters: Parameter[]
 ) {
-  const client = new CloudFormationClient({ region: 'us-east-1' });
+  return client.send(
+    new CreateChangeSetCommand({
+      TemplateBody: cfTemplateBody,
+      StackName: cfStackName,
+      ChangeSetName: `test-changeset-${Date.now()}`,
+      ChangeSetType: changeSetType,
+      Parameters: parameters,
+      Capabilities: [Capability.CAPABILITY_IAM],
+    })
+  );
+}
+
+export async function deleteChangeSet(
+  client: CloudFormationClient,
+  cfStackName: string,
+  changeSetId: string
+): Promise<DeleteChangeSetCommandOutput> {
+  return client.send(
+    new DeleteChangeSetCommand({
+      StackName: cfStackName,
+      ChangeSetName: changeSetId,
+    })
+  );
+}
+
+export async function describeChangeSet(
+  client: CloudFormationClient,
+  cfStackName: string,
+  changeSetId: string,
+  nextToken?: string,
+  delayMs = defaultDelayMs
+): Promise<Change[]> {
+  const response = await client.send(
+    new DescribeChangeSetCommand({
+      StackName: cfStackName,
+      ChangeSetName: changeSetId,
+      NextToken: nextToken,
+    })
+  );
+  if (response.Status === ChangeSetStatus.FAILED) {
+    debug(`ChangeSet failed: ${response.StatusReason}`);
+    await deleteChangeSet(client, cfStackName, changeSetId);
+    debug(`Successfully deleted ChangeSet ${changeSetId}`);
+    return [];
+  }
+  if (response.NextToken) {
+    return await describeChangeSet(
+      client,
+      cfStackName,
+      changeSetId,
+      response.NextToken
+    );
+  }
+  logChangeSetStatus(String(response.Status));
+  if (response.Status !== ChangeSetStatus.CREATE_COMPLETE) {
+    await delay(delayMs);
+    return await describeChangeSet(
+      client,
+      cfStackName,
+      changeSetId,
+      response.NextToken
+    );
+  }
+  resetChangeSetStatusLogs();
+  return response.Changes || [];
+}
+
+export async function getChanges(
+  client: CloudFormationClient,
+  cfStackName: string,
+  changeSet: CreateChangeSetCommandOutput
+) {
+  if (!changeSet.Id) {
+    throw new Error('ChangSet did not generate an ARN');
+  }
+  info(`Generating list of changes...`);
+  return describeChangeSet(client, cfStackName, changeSet.Id);
+}
+
+export async function getCreateOrUpdateStack(
+  client: CloudFormationClient,
+  cfStackName: string,
+  parameters: Parameter[]
+): Promise<boolean> {
   const hasExistingStack = await hasCreatedStack(client, cfStackName);
+
   debug(`Found existing stack: ${String(hasExistingStack)}`);
   debug(
     `Using parameters: ${parameters
@@ -276,11 +411,109 @@ export async function createOrUpdateStack(
     }
   }
 
-  if (update) {
-    info(`Updating existing stack, this can take a while...`);
-    await updateExistingStack(client, cfStackName, parameters);
+  return update;
+
+  // TODO: use change sets instead
+
+  // if (update) {
+  //   info(`Updating existing stack, this can take a while...`);
+  //   await updateExistingStack(client, cfStackName, parameters);
+  // } else {
+  //   info(`Creating new stack, this can take a while...`);
+  //   await createNewStack(client, cfStackName, parameters);
+  // }
+}
+
+function getChangeSetTable(changes: Change[]): string {
+  if (!changes.length) {
+    return '';
+  }
+  const headings = [
+    ['', 'ResourceType', 'LogicalResourceId', 'Action', 'Replacement'],
+  ];
+  const rows: [string, string, string, string, string][] = changes.map(
+    (change) => [
+      '⚠️',
+      String(change.ResourceChange?.ResourceType),
+      String(change.ResourceChange?.LogicalResourceId),
+      String(change.ResourceChange?.Action),
+      String(change.ResourceChange?.Replacement),
+    ]
+  );
+  return markdownTable(headings.concat(rows), {
+    align: ['l', 'l', 'l', 'l', 'l'],
+  });
+}
+
+function getCommentMarkdown(changes: Change[], changeSetTable: string): string {
+  return `${
+    changes.length
+      ? `
+Stack ChangeSet:
+
+${changeSetTable}
+
+The above changes will be applied on deploy.`
+      : `✅ No Stack changes`
+  }`;
+}
+
+function generateCommentId(issue: typeof github.context.issue): string {
+  return `Stack ChangeSet (ID:${issue.number})`;
+}
+
+export async function addCommentWithChangeSet(
+  client: CloudFormationClient,
+  cfStackName: string,
+  parameters: Parameter[],
+  token: string
+) {
+  const update = await getCreateOrUpdateStack(client, cfStackName, parameters);
+  const changeSetType = update ? ChangeSetType.UPDATE : ChangeSetType.CREATE;
+  const changeSet = await createChangeSet(
+    client,
+    cfStackName,
+    changeSetType,
+    parameters
+  );
+  const changes = await getChanges(client, cfStackName, changeSet);
+  const changeSetTable = getChangeSetTable(changes);
+  const markdown = getCommentMarkdown(changes, changeSetTable);
+
+  const issue = github.context.issue;
+  const commentId = generateCommentId(github.context.issue);
+  const body = `${commentId}\n${markdown}`;
+  const octokit = github.getOctokit(token);
+
+  console.log('commentId', commentId);
+  console.log('body', body);
+
+  const comments = await octokit.rest.issues.listComments({
+    issue_number: issue.number,
+    owner: issue.owner,
+    repo: issue.repo,
+  });
+
+  console.log('comments', comments);
+
+  const existingComment = comments.data.find((comment) =>
+    comment.body?.startsWith(commentId)
+  );
+
+  if (existingComment) {
+    await octokit.rest.issues.updateComment({
+      issue_number: issue.number,
+      body: body,
+      owner: issue.owner,
+      repo: issue.repo,
+      comment_id: existingComment.id,
+    });
   } else {
-    info(`Creating new stack, this can take a while...`);
-    await createNewStack(client, cfStackName, parameters);
+    await octokit.rest.issues.createComment({
+      issue_number: issue.number,
+      body: body,
+      owner: issue.owner,
+      repo: issue.repo,
+    });
   }
 }

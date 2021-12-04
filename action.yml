@@ -26,7 +26,10 @@ inputs:
     description: 'ARN of the certificate for the root and preview domains. For example: "arn:aws:acm:us-east-1:1234567:certificate/123abc-123abc-1234-5678-abcdef"'
   outDir:
     required: true
-    description: 'Path to build/out directory that contains the static files. For example: "./out"
+    description: 'Path to build/out directory that contains the static files. For example: "./out"'
+  token:
+    required: true
+    description: 'GitHub Token. For example: 12344567abcdef'
 runs:
   using: 'node16'
   main: 'dist/index.js'

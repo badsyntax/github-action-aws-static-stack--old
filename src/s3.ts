@@ -7,6 +7,7 @@ import {
   HeadObjectCommandOutput,
   ListObjectsCommand,
   PutObjectCommand,
+  PutObjectCommandOutput,
   S3Client,
 } from '@aws-sdk/client-s3';
 import glob from '@actions/glob';
@@ -57,7 +58,7 @@ export async function getObjectMetadata(
 function getObjectKeyFromFilePath(
   rootFilePath: string,
   absoluteFilePath: string,
-  prefix: S3ObjectPrefix = 'root'
+  prefix: S3ObjectPrefix
 ): string {
   return path.join(prefix, path.relative(rootFilePath, absoluteFilePath));
 }
@@ -86,8 +87,8 @@ async function uploadFile(
   absoluteFilePath: string,
   cacheControl: string,
   contentType: string
-) {
-  await client.send(
+): Promise<PutObjectCommandOutput> {
+  return client.send(
     new PutObjectCommand({
       Bucket: s3BucketName,
       Key: key,
@@ -96,7 +97,6 @@ async function uploadFile(
       Body: fs.createReadStream(absoluteFilePath),
     })
   );
-  info(`Uploaded ${key}`);
 }
 
 function getETag(absoluteFilePath: string): string {
@@ -111,21 +111,20 @@ function getETag(absoluteFilePath: string): string {
 export async function maybeUploadFile(
   client: S3Client,
   s3BucketName: string,
-  rootFilePath: string,
-  absoluteFilePath: string
-) {
-  const key = getObjectKeyFromFilePath(rootFilePath, absoluteFilePath);
+  absoluteFilePath: string,
+  key: string
+): Promise<boolean> {
   const extension = path.extname(key).toLowerCase();
   const cacheControl = getCacheControlForExtension(extension);
   const contentType = getContentTypeForExtension(extension);
-  const localETag = getETag(absoluteFilePath);
+  const eTag = getETag(absoluteFilePath);
   const metadata = await getObjectMetadata(client, s3BucketName, key);
 
   const shouldUploadFile =
     !metadata ||
     metadata.CacheControl !== cacheControl ||
     metadata.ContentType !== contentType ||
-    metadata.ETag !== localETag;
+    metadata.ETag !== eTag;
 
   if (shouldUploadFile) {
     await uploadFile(
@@ -137,7 +136,7 @@ export async function maybeUploadFile(
       contentType
     );
   }
-  return key;
+  return shouldUploadFile;
 }
 
 const trailingSlashRegex = /\/$/;
@@ -151,17 +150,25 @@ async function getFilesFromOutDir(outDir: string): Promise<string[]> {
   return globber.glob();
 }
 
-export async function syncRootFilesToS3(
+export async function syncFilesToS3(
+  client: S3Client,
   s3BucketName: string,
   outDir: string,
-  region: string
-): Promise<void> {
-  const client = new S3Client({
-    region,
-  });
+  prefix: S3ObjectPrefix = 'root'
+): Promise<string[]> {
   const files = await getFilesFromOutDir(outDir);
-  const absoluteFilePath = path.resolve(outDir);
+  const rootFilePath = path.resolve(outDir);
+  const uploadedKeys: string[] = [];
   for (const file of files) {
-    await maybeUploadFile(client, s3BucketName, absoluteFilePath, file);
+    const key = getObjectKeyFromFilePath(rootFilePath, file, prefix);
+    const uploaded = await maybeUploadFile(client, s3BucketName, file, key);
+    if (uploaded) {
+      info(`Uploaded ${key}`);
+      uploadedKeys.push(key);
+    } else {
+      info(`Skipped ${key} (no change)`);
+    }
   }
+  info(`Uploaded ${uploadedKeys.length} files`);
+  return uploadedKeys;
 }

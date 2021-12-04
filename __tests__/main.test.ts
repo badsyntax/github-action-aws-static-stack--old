@@ -14,6 +14,7 @@ test('test runs', () => {
   // process.env['INPUT_CACHECORSPATHPATTERN'] = '/_next/*';
   // process.env['INPUT_CERTIFICATEARN'] =
   //   'arn:aws:acm:us-east-1:1234567:certificate/123abc-123abc-1234-5678-abcdef';
+  // process.env['INPUT_OUTDIR'] = './out';
   // const np = process.execPath;
   // const ip = path.join(__dirname, '..', 'lib', 'main.js');
   // const options: cp.ExecFileSyncOptions = {

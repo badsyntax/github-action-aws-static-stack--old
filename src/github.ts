@@ -41,6 +41,11 @@ export function getInputs() {
     trimWhitespace: true,
   });
 
+  const token = getInput('token', {
+    required: true,
+    trimWhitespace: true,
+  });
+
   return {
     cfStackName,
     s3BucketName,
@@ -50,5 +55,6 @@ export function getInputs() {
     cacheCorsPathPattern,
     certificateARN,
     outDir,
+    token,
   };
 }

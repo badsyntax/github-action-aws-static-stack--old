@@ -42,6 +42,8 @@ steps:
       certificateARN: 'arn:aws:acm:us-east-1:1234567:certificate/123abc-123abc-1234-5678-abcdef'
 ```
 
+Next send a Pull Request to trigger the action. The S
+
 ## Caching Strategy
 
 - Immutable static files (eg images, JavaScript, CSS etc) are cached by both the browser and the Edge for 1 year. (Files can only be immutable if they do not change and typically use hashed filenames.)
