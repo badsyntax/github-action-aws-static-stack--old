@@ -24,6 +24,8 @@ import {
   CreateChangeSetCommandOutput,
   DeleteChangeSetCommand,
   DeleteChangeSetCommandOutput,
+  ExecuteChangeSetCommand,
+  ExecuteChangeSetCommandOutput,
 } from '@aws-sdk/client-cloudformation';
 
 const defaultDelayMs = 3000;
@@ -220,6 +222,20 @@ export async function waitForStackStatus(
   }
 }
 
+export async function applyChangeSet(
+  client: CloudFormationClient,
+  cfStackName: string,
+  changeSetId: string
+): Promise<void> {
+  await client.send(
+    new ExecuteChangeSetCommand({
+      StackName: cfStackName,
+      ChangeSetName: changeSetId,
+    })
+  );
+  await waitForCompleteOrFailed(client, cfStackName);
+}
+
 export async function describeStack(
   client: CloudFormationClient,
   cfStackName: string
@@ -288,11 +304,7 @@ export async function deleteExistingStack(
   notice(`Stack ${cfStackName} successfully deleted`);
 }
 
-export async function shouldDeleteExistingStack(
-  client: CloudFormationClient,
-  cfStackName: string
-): Promise<boolean> {
-  const stack = await describeStack(client, cfStackName);
+export function shouldDeleteExistingStack(stack: Stack): boolean {
   // If the StackStatus is ROLLBACK_COMPLETE then we cannot update it
   // and instead need to delete it and re-create it.
   return stack.StackStatus === StackStatus.ROLLBACK_COMPLETE;
@@ -345,8 +357,6 @@ export async function describeChangeSet(
   );
   if (response.Status === ChangeSetStatus.FAILED) {
     debug(`ChangeSet failed: ${response.StatusReason}`);
-    await deleteChangeSet(client, cfStackName, changeSetId);
-    debug(`Successfully deleted ChangeSet ${changeSetId}`);
     return [];
   }
   if (response.NextToken) {
@@ -400,7 +410,8 @@ export async function getCreateOrUpdateStack(
   let update = false;
 
   if (hasExistingStack) {
-    const shouldDelete = await shouldDeleteExistingStack(client, cfStackName);
+    const stack = await describeStack(client, cfStackName);
+    const shouldDelete = await shouldDeleteExistingStack(stack);
     if (shouldDelete) {
       warning(
         `Deleting existing stack ${cfStackName}, due to ${StackStatus.ROLLBACK_COMPLETE} status`
@@ -412,16 +423,6 @@ export async function getCreateOrUpdateStack(
   }
 
   return update;
-
-  // TODO: use change sets instead
-
-  // if (update) {
-  //   info(`Updating existing stack, this can take a while...`);
-  //   await updateExistingStack(client, cfStackName, parameters);
-  // } else {
-  //   info(`Creating new stack, this can take a while...`);
-  //   await createNewStack(client, cfStackName, parameters);
-  // }
 }
 
 function getChangeSetTable(changes: Change[]): string {
@@ -453,8 +454,9 @@ Stack ChangeSet:
 
 ${changeSetTable}
 
-The above changes will be applied on deploy.`
-      : `✅ No Stack changes`
+The above changes will be applied.`
+      : `
+✅ No Stack changes`
   }`;
 }
 
@@ -463,20 +465,9 @@ function generateCommentId(issue: typeof github.context.issue): string {
 }
 
 export async function addCommentWithChangeSet(
-  client: CloudFormationClient,
-  cfStackName: string,
-  parameters: Parameter[],
+  changes: Change[],
   token: string
-) {
-  const update = await getCreateOrUpdateStack(client, cfStackName, parameters);
-  const changeSetType = update ? ChangeSetType.UPDATE : ChangeSetType.CREATE;
-  const changeSet = await createChangeSet(
-    client,
-    cfStackName,
-    changeSetType,
-    parameters
-  );
-  const changes = await getChanges(client, cfStackName, changeSet);
+): Promise<void> {
   const changeSetTable = getChangeSetTable(changes);
   const markdown = getCommentMarkdown(changes, changeSetTable);
 
@@ -485,16 +476,11 @@ export async function addCommentWithChangeSet(
   const body = `${commentId}\n${markdown}`;
   const octokit = github.getOctokit(token);
 
-  console.log('commentId', commentId);
-  console.log('body', body);
-
   const comments = await octokit.rest.issues.listComments({
     issue_number: issue.number,
     owner: issue.owner,
     repo: issue.repo,
   });
-
-  console.log('comments', comments);
 
   const existingComment = comments.data.find((comment) =>
     comment.body?.startsWith(commentId)

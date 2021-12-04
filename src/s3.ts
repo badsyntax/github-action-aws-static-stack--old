@@ -154,7 +154,7 @@ export async function syncFilesToS3(
   client: S3Client,
   s3BucketName: string,
   outDir: string,
-  prefix: S3ObjectPrefix = 'root'
+  prefix: S3ObjectPrefix
 ): Promise<string[]> {
   const files = await getFilesFromOutDir(outDir);
   const rootFilePath = path.resolve(outDir);
@@ -171,4 +171,12 @@ export async function syncFilesToS3(
   }
   info(`Uploaded ${uploadedKeys.length} files`);
   return uploadedKeys;
+}
+
+export async function syncFilesToPreview(
+  client: S3Client,
+  s3BucketName: string,
+  outDir: string
+): Promise<string[]> {
+  return syncFilesToS3(client, s3BucketName, outDir, 'preview');
 }

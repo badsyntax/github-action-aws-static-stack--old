@@ -216,7 +216,7 @@ Resources:
       Handler: index.handler
       Code:
         ZipFile: |
-          function getBranchName(request) {
+          function getBranchName2(request) {
             const hostItem = request.headers.host.find(item => item.key === 'Host');
             const hosts = hostItem.value.split('.');
             const previewHost = hosts.find(host => host === 'preview');
@@ -229,7 +229,7 @@ Resources:
 
           exports.handler = (event, context, callback) => {
             const request = event.Records[0].cf.request;
-            const branchName = getBranchName(request);
+            const branchName = getBranchName2(request);
             if (branchName) {
               const path = request.uri === '/' ? '/index.html' : request.uri;
               request.uri = '/preview/' + branchName + path;

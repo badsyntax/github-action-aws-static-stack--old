@@ -1,15 +1,27 @@
-import { setFailed } from '@actions/core';
+import { info, notice, setFailed } from '@actions/core';
 
 import { getInputs } from './github.js';
 import {
   getCloudFormationParameters,
   addCommentWithChangeSet,
+  describeStack,
+  getCreateOrUpdateStack,
+  createNewStack,
+  updateExistingStack,
+  createChangeSet,
+  getChanges,
+  applyChangeSet,
+  deleteChangeSet,
 } from './cloudformation.js';
 import * as ansi from './ansi.js';
-import { setupS3Bucket, syncFilesToS3 } from './s3.js';
+import { setupS3Bucket, syncFilesToPreview, syncFilesToS3 } from './s3.js';
 import { invalidateCloudFrontCache } from './cloudfront.js';
-import { CloudFormationClient } from '@aws-sdk/client-cloudformation';
+import {
+  ChangeSetType,
+  CloudFormationClient,
+} from '@aws-sdk/client-cloudformation';
 import { S3Client } from '@aws-sdk/client-s3';
+import { CloudFrontClient } from '@aws-sdk/client-cloudfront';
 
 const isPullRequest = true;
 
@@ -38,16 +50,70 @@ async function run(): Promise<void> {
       region,
     });
 
+    const cloudFrontClient = new CloudFrontClient({
+      region,
+    });
+
+    const update = await getCreateOrUpdateStack(
+      cloudFormationClient,
+      inputs.cfStackName,
+      cfParameters
+    );
+    const changeSetType = update ? ChangeSetType.UPDATE : ChangeSetType.CREATE;
+    const changeSet = await createChangeSet(
+      cloudFormationClient,
+      inputs.cfStackName,
+      changeSetType,
+      cfParameters
+    );
+    const changes = await getChanges(
+      cloudFormationClient,
+      inputs.cfStackName,
+      changeSet
+    );
+
     if (isPullRequest) {
-      await addCommentWithChangeSet(
-        cloudFormationClient,
-        inputs.cfStackName,
-        cfParameters,
-        inputs.token
-      );
+      await addCommentWithChangeSet(changes, inputs.token);
+      // await deployPreviewSite(
+      //   s3Client,
+      //   cloudFrontClient,
+      //   inputs.s3BucketName,
+      //   inputs.outDir
+      // );
     }
 
-    // await createOrUpdateStack(inputs.cfStackName, cfParameters);
+    if (changeSet.Id) {
+      if (changes.length) {
+        info(`Applying ChangeSet, this can take a while...`);
+        await applyChangeSet(
+          cloudFormationClient,
+          inputs.cfStackName,
+          changeSet.Id
+        );
+        notice(`Successfully applied Stack ChangeSet`);
+      } else {
+        await deleteChangeSet(
+          cloudFormationClient,
+          inputs.cfStackName,
+          changeSet.Id
+        );
+        info(`Successfully deleted Stack ChangeSet`);
+      }
+    }
+
+    const stack = await describeStack(cloudFormationClient, inputs.cfStackName);
+
+    console.log('stack', stack);
+    console.log('stack outputs', stack.Outputs);
+
+    // if (isPullRequest) {
+    //   await deployPreviewSite(
+    //     s3Client,
+    //     cloudFrontClient,
+    //     inputs.s3BucketName,
+    //     inputs.outDir
+    //   );
+    // }
     // await setupS3Bucket(s3Client, inputs.s3BucketName);
     // const uploadedKeys = await syncFilesToS3(
     // s3Client
