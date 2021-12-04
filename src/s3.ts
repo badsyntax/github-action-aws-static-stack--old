@@ -5,7 +5,6 @@ import mime from 'mime-types';
 import {
   HeadObjectCommand,
   HeadObjectCommandOutput,
-  ListObjectsCommand,
   PutObjectCommand,
   PutObjectCommandOutput,
   S3Client,
@@ -13,30 +12,7 @@ import {
 import glob from '@actions/glob';
 import { info } from '@actions/core';
 
-type S3ObjectPrefix = 'root' | 'preview';
-
-// We don't need to explicity ensure the root keys exist as they will be created
-// when objects are uploaded.
-export async function setupS3Bucket(s3BucketName: string): Promise<void> {
-  const client = new S3Client({
-    region: 'us-east-1',
-  });
-  const response = await client.send(
-    new ListObjectsCommand({
-      Bucket: s3BucketName,
-      Delimiter: '/',
-    })
-  );
-  const commonPrefixes = response.CommonPrefixes || [];
-  const hasPreviewDirectory = !!commonPrefixes.find(
-    ({ Prefix }) => Prefix === 'preview/'
-  );
-  const hasRootDirectory = !!commonPrefixes.find(
-    ({ Prefix }) => Prefix === 'root/'
-  );
-  console.log('hasPreviewDirectory', hasPreviewDirectory);
-  console.log('hasRootDirectory', hasRootDirectory);
-}
+export type S3ObjectPrefix = 'root' | 'preview';
 
 export async function getObjectMetadata(
   client: S3Client,
@@ -58,7 +34,7 @@ export async function getObjectMetadata(
 function getObjectKeyFromFilePath(
   rootFilePath: string,
   absoluteFilePath: string,
-  prefix: S3ObjectPrefix
+  prefix: S3ObjectPrefix | string
 ): string {
   return path.join(prefix, path.relative(rootFilePath, absoluteFilePath));
 }
@@ -154,7 +130,7 @@ export async function syncFilesToS3(
   client: S3Client,
   s3BucketName: string,
   outDir: string,
-  prefix: S3ObjectPrefix
+  prefix: S3ObjectPrefix | string
 ): Promise<string[]> {
   const files = await getFilesFromOutDir(outDir);
   const rootFilePath = path.resolve(outDir);

@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { info } from '@actions/core';
 import {
   CloudFrontClient,
@@ -5,7 +6,7 @@ import {
   GetInvalidationCommand,
   InvalidationBatch,
 } from '@aws-sdk/client-cloudfront';
-import path from 'node:path';
+
 import { defaultDelayMs } from './constants.js';
 import { delay } from './util.js';
 
@@ -40,7 +41,6 @@ export async function invalidateCloudFrontCache(
     .filter((key) => path.extname(key).toLowerCase() === '.html')
     .map((file) => '/' + file);
   if (items.length) {
-    info('Invalidating CloudFront cache for Preview site...');
     const invalidationBatch: InvalidationBatch = {
       Paths: {
         Quantity: items.length,
@@ -48,7 +48,6 @@ export async function invalidateCloudFrontCache(
       },
       CallerReference: `invalidate-paths-${Date.now()}`,
     };
-    console.log(JSON.stringify(invalidationBatch, null, 2));
     const output = await client.send(
       new CreateInvalidationCommand({
         InvalidationBatch: invalidationBatch,
@@ -61,7 +60,8 @@ export async function invalidateCloudFrontCache(
     await waitForInvalidationToComplete(
       client,
       distributionId,
-      output.Invalidation?.Id
+      output.Invalidation.Id
     );
+    info(`Invalidated CloudFront cache (${items.length} items)`);
   }
 }

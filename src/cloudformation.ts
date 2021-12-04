@@ -25,10 +25,12 @@ import {
   DeleteChangeSetCommand,
   DeleteChangeSetCommandOutput,
   ExecuteChangeSetCommand,
-  ExecuteChangeSetCommandOutput,
 } from '@aws-sdk/client-cloudformation';
+
 import { defaultDelayMs } from './constants.js';
 import { delay } from './util.js';
+
+export type CFDistributionId = 'CFDistributionPreviewId' | 'CFDistributionId';
 
 const cfTemplateBody = fs.readFileSync(
   path.resolve('cloudformation', 's3bucket_with_cloudfront.yml'),
@@ -481,19 +483,18 @@ export async function addCommentWithChangeSet(
   );
 
   if (existingComment) {
-    await octokit.rest.issues.updateComment({
+    await octokit.rest.issues.deleteComment({
       issue_number: issue.number,
       body: body,
       owner: issue.owner,
       repo: issue.repo,
       comment_id: existingComment.id,
     });
-  } else {
-    await octokit.rest.issues.createComment({
-      issue_number: issue.number,
-      body: body,
-      owner: issue.owner,
-      repo: issue.repo,
-    });
   }
+  await octokit.rest.issues.createComment({
+    issue_number: issue.number,
+    body: body,
+    owner: issue.owner,
+    repo: issue.repo,
+  });
 }
