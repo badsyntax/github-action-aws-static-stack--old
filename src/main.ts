@@ -6,15 +6,10 @@ import {
   ListStacksCommand,
   StackSummary,
 } from '@aws-sdk/client-cloudformation';
-import * as ansi from './ansi';
+import * as ansi from './ansi.js';
 
 const cfTemplateBody = fs.readFileSync(
-  path.resolve(
-    __dirname,
-    '..',
-    'cloudformation',
-    's3bucket_with_cloudfront.yml'
-  ),
+  path.resolve('cloudformation', 's3bucket_with_cloudfront.yml'),
   'utf8'
 );
 
@@ -118,10 +113,11 @@ function getInputs() {
 }
 
 async function run(): Promise<void> {
-  const client = new CloudFormationClient({ region: 'us-east-1' });
-
   try {
     const inputs = getInputs();
+
+    const client = new CloudFormationClient({ region: 'us-east-1' });
+
     const hasExistingStack = await hasCreatedStack(client, inputs.cfStackName);
 
     debug(`Found existing stack: ${String(hasExistingStack)}`);

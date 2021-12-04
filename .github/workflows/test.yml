@@ -11,6 +11,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - name: Set Node.js 16.x
+        uses: actions/setup-node@v2.4.1
+        with:
+          node-version: 16.x
       - run: |
           npm install
       - run: |
@@ -19,12 +23,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
       - uses: ./
         with:
           cfStackName: 'example-com-static-cloudformation-stack'
-          # s3BucketName: 'example.com-us-east-1'
-          # s3AllowedOrigins: 'https://example.com, https://*.preview.example.com'
-          # rootCloudFrontHosts: 'example.com'
-          # previewCloudFrontHosts: '*.preview.example.com'
-          # cacheCorsPathPattern: '/_next/*'
-          # certificateARN: 'arn:aws:acm:us-east-1:1234567:certificate/123abc-123abc-1234-5678-abcdef'
+          s3BucketName: 'example.com-us-east-1'
+          s3AllowedOrigins: 'https://example.com, https://*.preview.example.com'
+          rootCloudFrontHosts: 'example.com'
+          previewCloudFrontHosts: '*.preview.example.com'
+          cacheCorsPathPattern: '/_next/*'
+          certificateARN: 'arn:aws:acm:us-east-1:1234567:certificate/123abc-123abc-1234-5678-abcdef'
