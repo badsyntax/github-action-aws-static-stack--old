@@ -163,7 +163,7 @@ export async function syncFilesToS3(
     const key = getObjectKeyFromFilePath(rootFilePath, file, prefix);
     const uploaded = await maybeUploadFile(client, s3BucketName, file, key);
     if (uploaded) {
-      info(`Uploaded ${key}`);
+      info(`Synced ${key}`);
       uploadedKeys.push(key);
     } else {
       info(`Skipped ${key} (no change)`);

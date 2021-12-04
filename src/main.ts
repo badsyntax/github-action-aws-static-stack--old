@@ -20,8 +20,9 @@ import {
   ChangeSetType,
   CloudFormationClient,
 } from '@aws-sdk/client-cloudformation';
-import { S3Client } from '@aws-sdk/client-s3';
 import { CloudFrontClient } from '@aws-sdk/client-cloudfront';
+import { S3Client } from '@aws-sdk/client-s3';
+import { deployPreviewSite } from './deploy.js';
 
 const isPullRequest = true;
 
@@ -101,19 +102,16 @@ async function run(): Promise<void> {
       }
     }
 
-    const stack = await describeStack(cloudFormationClient, inputs.cfStackName);
-
-    console.log('stack', stack);
-    console.log('stack outputs', stack.Outputs);
-
-    // if (isPullRequest) {
-    //   await deployPreviewSite(
-    //     s3Client,
-    //     cloudFrontClient,
-    //     inputs.s3BucketName,
-    //     inputs.outDir
-    //   );
-    // }
+    if (isPullRequest) {
+      await deployPreviewSite(
+        s3Client,
+        cloudFormationClient,
+        cloudFrontClient,
+        inputs.cfStackName,
+        inputs.s3BucketName,
+        inputs.outDir
+      );
+    }
     // await setupS3Bucket(s3Client, inputs.s3BucketName);
     // const uploadedKeys = await syncFilesToS3(
     // s3Client

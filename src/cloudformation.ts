@@ -27,8 +27,8 @@ import {
   ExecuteChangeSetCommand,
   ExecuteChangeSetCommandOutput,
 } from '@aws-sdk/client-cloudformation';
-
-const defaultDelayMs = 3000;
+import { defaultDelayMs } from './constants.js';
+import { delay } from './util.js';
 
 const cfTemplateBody = fs.readFileSync(
   path.resolve('cloudformation', 's3bucket_with_cloudfront.yml'),
@@ -73,12 +73,6 @@ function logChangeSetStatus(status: string): void {
 
 function resetChangeSetStatusLogs(): void {
   logs.changeSetStatusLogs = {};
-}
-
-function delay(delayMs: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, delayMs);
-  });
 }
 
 export function getCloudFormationParameters(
