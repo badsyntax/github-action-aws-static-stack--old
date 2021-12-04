@@ -81,10 +81,11 @@ export async function getAllStacks(
   nextToken?: string,
   allStacks: StackSummary[] = []
 ): Promise<StackSummary[]> {
-  const command = new ListStacksCommand({
-    NextToken: nextToken,
-  });
-  const response = await client.send(command);
+  const response = await client.send(
+    new ListStacksCommand({
+      NextToken: nextToken,
+    })
+  );
   const stacks = allStacks.concat(response.StackSummaries || []);
   if (response.NextToken) {
     return getAllStacks(client, response.NextToken, stacks);
@@ -119,11 +120,12 @@ export async function updateExistingStack(
   cfStackName: string,
   parameters: Parameter[]
 ): Promise<UpdateStackCommandOutput> {
-  const command = new UpdateStackCommand({
-    StackName: cfStackName,
-    TemplateBody: cfTemplateBody,
-  });
-  return client.send(command);
+  return client.send(
+    new UpdateStackCommand({
+      StackName: cfStackName,
+      TemplateBody: cfTemplateBody,
+    })
+  );
 }
 
 export async function createNewStack(
@@ -131,13 +133,14 @@ export async function createNewStack(
   cfStackName: string,
   parameters: Parameter[]
 ): Promise<void> {
-  const command = new CreateStackCommand({
-    StackName: cfStackName,
-    TemplateBody: cfTemplateBody,
-    Parameters: parameters,
-    Capabilities: [Capability.CAPABILITY_IAM],
-  });
-  await client.send(command);
+  await client.send(
+    new CreateStackCommand({
+      StackName: cfStackName,
+      TemplateBody: cfTemplateBody,
+      Parameters: parameters,
+      Capabilities: [Capability.CAPABILITY_IAM],
+    })
+  );
   const status = await waitForCompleteOrFailed(client, cfStackName);
   if (status !== String(StackStatus.CREATE_COMPLETE)) {
     throw new Error('Stack creation failed');
@@ -172,10 +175,11 @@ export async function describeStack(
   client: CloudFormationClient,
   cfStackName: string
 ): Promise<Stack> {
-  const describeStacksCommand = new DescribeStacksCommand({
-    StackName: cfStackName,
-  });
-  const response = await client.send(describeStacksCommand);
+  const response = await client.send(
+    new DescribeStacksCommand({
+      StackName: cfStackName,
+    })
+  );
   if (!response.Stacks?.length) {
     throw new Error('Stack not found');
   }
@@ -222,10 +226,11 @@ export async function deleteExistingStack(
   client: CloudFormationClient,
   cfStackName: string
 ) {
-  const command = new DeleteStackCommand({
-    StackName: cfStackName,
-  });
-  await client.send(command);
+  await client.send(
+    new DeleteStackCommand({
+      StackName: cfStackName,
+    })
+  );
   await waitForStackStatus(
     client,
     cfStackName,

@@ -36,6 +36,11 @@ export function getInputs() {
     trimWhitespace: true,
   });
 
+  const outDir = getInput('outDir', {
+    required: true,
+    trimWhitespace: true,
+  });
+
   return {
     cfStackName,
     s3BucketName,
@@ -44,5 +49,6 @@ export function getInputs() {
     previewCloudFrontHosts,
     cacheCorsPathPattern,
     certificateARN,
+    outDir,
   };
 }
