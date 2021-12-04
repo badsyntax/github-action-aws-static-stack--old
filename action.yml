@@ -1,11 +1,29 @@
-name: 'Your name here'
-description: 'Provide a description here'
-author: 'Your name or organization here'
+name: 'AWS Static Stack'
+description: 'Deploy your static website to the AWS Edge.'
+author: 'Richard Willis <willis.rh@gmail.com>'
 inputs:
-  milliseconds: # change this
+  cfStackName:
     required: true
-    description: 'input description here'
-    default: 'default value if applicable'
+    description: 'The name of the Cloudformation stack to be created. For example: example-com-static-cloudformation-stack'
+  s3BucketName:
+    required: true
+    description: 'The name of S3 bucket to be created, to store your static files. Must end with region name, for example: example.com-us-east-1'
+  s3AllowedOrigins:
+    required: true
+    description: 'A list of allowed domains to request resources from S3. For example: https://example.com, https://*.preview.example.com'
+  rootCloudFrontHosts:
+    required: true
+    description: 'A list of hosts assigned to the Root CloudFront distribution. For example: example.com'
+  previewCloudFrontHosts:
+    required: true
+    description: 'A list of hosts assigned to the Preview CloudFront distribution. For example: *.preview.example.com'
+  cacheCorsPathPattern:
+    required: true
+    description: 'The path pattern for which you want to apply the caching & CORS policy (cannot be root). For example: /_next/*'
+    default: '/_next/*'
+  certificateARN:
+    required: true
+    description: 'ARN of the certificate for the root and preview domains. For example: arn:aws:acm:us-east-1:1234567:certificate/123abc-123abc-1234-5678-abcdef'
 runs:
-  using: 'node12'
+  using: 'node16'
   main: 'dist/index.js'
