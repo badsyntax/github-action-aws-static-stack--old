@@ -1,7 +1,7 @@
 {
   "files.exclude": {
-    "dist": false,
-    "lib": false,
+    "dist": true,
+    "lib": true,
     "package-lock.json": false
   },
   "typescript.updateImportsOnFileMove.enabled": "always",
