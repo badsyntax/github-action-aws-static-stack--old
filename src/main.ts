@@ -22,7 +22,7 @@ async function run(): Promise<void> {
   try {
     const isPullRequest = github.context.eventName === 'pull_request';
     const inputs = getInputs();
-    const lambdaVersion = '1-0-0';
+    const lambdaVersion = '1-0-3'; //FIXME
     const region = 'us-east-1';
 
     const cfParameters = getCloudFormationParameters(

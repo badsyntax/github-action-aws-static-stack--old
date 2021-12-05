@@ -1,5 +1,10 @@
 name: 'build-test'
-on: # rebuild any PRs and master branch changes
+
+concurrency:
+  group: prod_deploy
+  cancel-in-progress: false
+
+on:
   repository_dispatch:
   pull_request:
   push:
