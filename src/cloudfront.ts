@@ -54,23 +54,33 @@ export function getInvalidationPathsFromKeys(
   keys: string[], // eg ['root/index.html', 'root/css/styles.css']
   prefix: string
 ): string[] {
-  const pathsByInvalidationType = keys
-    .filter((key) => path.extname(key).toLowerCase() === '.html')
+  const pathsToInvalidate = keys
+    .filter((key) => {
+      const ext = path.extname(key).toLowerCase();
+      return ext === '.html' || ext === '';
+    })
     .map((key) => `/${key}`);
-  const pathsWithOutPrefix = pathsByInvalidationType.map((path) => {
+
+  const pathsWithOutPrefix = pathsToInvalidate.map((path) => {
     return path.replace(`/${prefix}`, '');
   });
-  const hasIndex = pathsWithOutPrefix.find((path) =>
-    path.endsWith('index.html')
+
+  const hasIndex = pathsWithOutPrefix.find(
+    (path) => path.endsWith('index.html') || path.endsWith('index')
   );
+
   if (hasIndex) {
     pathsWithOutPrefix.push('/');
   }
-  const previewPathsWithoutOriginPath = pathsByInvalidationType
+
+  const previewPathsWithoutOriginPath = pathsToInvalidate
     .filter((path) => path.startsWith(`/${previewPath}`))
     .map((path) => path.replace(`/${previewPath}`, ''));
+
   const items = previewPathsWithoutOriginPath.concat(pathsWithOutPrefix);
-  return items;
+  const uniqueItems = [...new Set(items)];
+
+  return uniqueItems;
 }
 
 export async function invalidateCloudFrontCache(

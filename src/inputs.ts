@@ -56,6 +56,13 @@ export function getInputs() {
     trimWhitespace: true,
   });
 
+  const removeExtensionFromHtmlFiles = Boolean(
+    getInput('removeExtensionFromHtmlFiles', {
+      required: true,
+      trimWhitespace: true,
+    })
+  );
+
   return {
     cfStackName,
     s3BucketName,
@@ -68,5 +75,6 @@ export function getInputs() {
     token,
     previewUrlHost,
     lambdaVersion,
+    removeExtensionFromHtmlFiles,
   };
 }
