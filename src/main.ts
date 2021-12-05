@@ -17,7 +17,7 @@ import {
   applyChangeSet,
   deleteChangeSet,
 } from './cloudformation.js';
-import { getInputs } from './github.js';
+import { getInputs } from './inputs.js';
 import { addPRCommentWithChangeSet, deploySite } from './deploy.js';
 import { previewPath, region, rootPath } from './constants.js';
 
@@ -73,6 +73,7 @@ async function deploy(
   outDir: string,
   previewUrlHost: string,
   token: string,
+  removeExtensionFromHtmlFiles: boolean,
   changes: Change[]
 ) {
   const isPullRequest = github.context.eventName === 'pull_request';
@@ -90,6 +91,7 @@ async function deploy(
       cfStackName,
       s3BucketName,
       outDir,
+      removeExtensionFromHtmlFiles,
       'CFDistributionPreviewId',
       `${previewPath}/${prBranchName}`
     );
@@ -108,6 +110,7 @@ async function deploy(
       cfStackName,
       s3BucketName,
       outDir,
+      removeExtensionFromHtmlFiles,
       'CFDistributionId',
       rootPath
     );
@@ -126,7 +129,8 @@ async function run(): Promise<void> {
       inputs.previewCloudFrontHosts,
       inputs.cacheCorsPathPattern,
       inputs.certificateARN,
-      inputs.lambdaVersion
+      inputs.lambdaVersion,
+      inputs.removeExtensionFromHtmlFiles
     );
 
     const cloudFormationClient = new CloudFormationClient({
@@ -154,6 +158,7 @@ async function run(): Promise<void> {
       inputs.outDir,
       inputs.previewUrlHost,
       inputs.token,
+      inputs.removeExtensionFromHtmlFiles,
       changes
     );
   } catch (error) {

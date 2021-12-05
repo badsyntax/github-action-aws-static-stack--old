@@ -15,6 +15,7 @@ export async function deploySite(
   cfStackName: string,
   s3BucketName: string,
   outDir: string,
+  removeExtensionFromHtmlFiles: boolean,
   cfDistributionId: CFDistributionId,
   prefix: S3ObjectPrefix | string
 ) {
@@ -29,7 +30,8 @@ export async function deploySite(
     s3Client,
     s3BucketName,
     outDir,
-    prefix
+    prefix,
+    removeExtensionFromHtmlFiles
   );
   await invalidateCloudFrontCache(
     cloudFrontClient,

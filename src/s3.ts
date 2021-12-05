@@ -35,9 +35,16 @@ export async function getObjectMetadata(
 function getObjectKeyFromFilePath(
   rootFilePath: string,
   absoluteFilePath: string,
-  prefix: S3ObjectPrefix | string
+  prefix: S3ObjectPrefix | string,
+  removeExtensionFromHtmlFiles: boolean
 ): string {
-  return path.join(prefix, path.relative(rootFilePath, absoluteFilePath));
+  const key = path.join(prefix, path.relative(rootFilePath, absoluteFilePath));
+  const { root, dir, name, ext } = path.parse(key);
+  const extensionLessFile = path.join(root + dir, name);
+  if (removeExtensionFromHtmlFiles && ext.toLowerCase() === '.html') {
+    return extensionLessFile;
+  }
+  return extensionLessFile + ext;
 }
 
 function getCacheControlForExtension(extension: string): string {
@@ -91,7 +98,7 @@ export async function maybeUploadFile(
   absoluteFilePath: string,
   key: string
 ): Promise<boolean> {
-  const extension = path.extname(key).toLowerCase();
+  const extension = path.extname(absoluteFilePath).toLowerCase();
   const cacheControl = getCacheControlForExtension(extension);
   const contentType = getContentTypeForExtension(extension);
   const eTag = getETag(absoluteFilePath);
@@ -131,13 +138,19 @@ export async function syncFilesToS3(
   client: S3Client,
   s3BucketName: string,
   outDir: string,
-  prefix: S3ObjectPrefix | string
+  prefix: S3ObjectPrefix | string,
+  removeExtensionFromHtmlFiles: boolean
 ): Promise<string[]> {
   const files = await getFilesFromOutDir(outDir);
   const rootFilePath = path.resolve(outDir);
   const uploadedKeys: string[] = [];
   for (const file of files) {
-    const key = getObjectKeyFromFilePath(rootFilePath, file, prefix);
+    const key = getObjectKeyFromFilePath(
+      rootFilePath,
+      file,
+      prefix,
+      removeExtensionFromHtmlFiles
+    );
     const uploaded = await maybeUploadFile(client, s3BucketName, file, key);
     if (uploaded) {
       info(`Synced ${key}`);

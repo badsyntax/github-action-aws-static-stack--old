@@ -1,5 +1,7 @@
 # AWS Static Stack GitHub Action
 
+TODO: optionally copy html files to extensionless
+
 A GitHub Action to deploy your static website to the AWS Edge 🔥.
 
 _CURRENTLY IN ALPHA - NOT FIT FOR PUBLIC USE_
@@ -33,33 +35,72 @@ Open the [AWS Certificate Manager](https://console.aws.amazon.com/acm/home?regio
 Once the certificate is created & verified, copy the Certificate ARN and use it to configure the action:
 
 ```yaml
-steps:
-  - uses: actions/checkout@v2
-  - name: Configure AWS Credentials
-    uses: aws-actions/configure-aws-credentials@v1
-    with:
-      aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      aws-region: us-east-1
-  - uses: ./
-    with:
-      outDir: './out'
-      token: ${{ secrets.GITHUB_TOKEN }}
-      lambdaVersion: '1.0.0'
-      cfStackName: 'static-example-richardwillis-cloudformation-stack'
-      s3BucketName: 'static-example-richardwillis-info-us-east-1'
-      s3AllowedOrigins: 'https://example.com, https://*.preview.example.com'
-      rootCloudFrontHosts: 'example.com'
-      previewCloudFrontHosts: '*.preview.example.com'
-      previewUrlHost: 'preview.example.com'
-      cacheCorsPathPattern: '/_next/*'
-      certificateARN: 'arn:aws:acm:us-east-1:1234567:certificate/123abc-123abc-1234-5678-abcdef'
+name: 'build-deploy'
+
+concurrency:
+  group: prod_deploy
+  cancel-in-progress: false
+
+on:
+  repository_dispatch:
+  pull_request:
+  push:
+    branches:
+      - main
+      - 'releases/*'
+
+jobs:
+  build-test-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set Node.js 16.x
+        uses: actions/setup-node@v2.4.1
+        with:
+          node-version: 16.x
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Deploy
+        uses: badsyntax/github-action-aws-static-stack@v0.0.1
+        with:
+          outDir: './out'
+          token: ${{ secrets.GITHUB_TOKEN }}
+          lambdaVersion: '1.0.0'
+          cfStackName: 'static-example-cloudformation-stack'
+          s3BucketName: 'static-example-info-us-east-1'
+          s3AllowedOrigins: 'https://example.com, https://*.preview.example.com'
+          rootCloudFrontHosts: 'example.com'
+          previewCloudFrontHosts: '*.preview.example.com'
+          previewUrlHost: 'preview.example.com'
+          cacheCorsPathPattern: '/_next/*'
+          certificateARN: 'arn:aws:acm:us-east-1:1234567:certificate/123abc-123abc-1234-5678-abcdef'
+          removeExtensionFromHtmlFiles: true
 ```
 
-Next send a Pull Request to trigger the action.
+Next, send a Pull Request to trigger the action.
 
 - The Stack will be created/updated, and a new preview site deployed, for every Pull Request
 - The Stack will be created/updated, and the root site deployed, for every push event to master/main/release branch
+
+It will take 10-15mins for the initial stack to be created.
+
+Once the stack has been initially created, you need to adjust your domain records to point to the relevant CloudFront distribution.
 
 ## Caching Strategy
 
