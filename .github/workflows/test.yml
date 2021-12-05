@@ -1,10 +1,10 @@
 name: 'build-test'
-on: # rebuild any PRs and main branch changes
+on: # rebuild any PRs and master branch changes
   repository_dispatch:
   pull_request:
   push:
     branches:
-      - main
+      - master
       - 'releases/*'
 
 jobs:
