@@ -1,8 +1,10 @@
 import { info, notice, setFailed } from '@actions/core';
 import github from '@actions/github';
 import {
+  Change,
   ChangeSetType,
   CloudFormationClient,
+  Parameter,
 } from '@aws-sdk/client-cloudformation';
 import { CloudFrontClient } from '@aws-sdk/client-cloudfront';
 import { S3Client } from '@aws-sdk/client-s3';
@@ -17,13 +19,104 @@ import {
 } from './cloudformation.js';
 import { getInputs } from './github.js';
 import { addPRCommentWithChangeSet, deploySite } from './deploy.js';
+import { region } from './constants.js';
+
+async function updateCloudFormationStack(
+  cloudFormationClient: CloudFormationClient,
+  cfStackName: string,
+  cfParameters: Parameter[]
+): Promise<Change[]> {
+  const updateStack = await getCreateOrUpdateStack(
+    cloudFormationClient,
+    cfStackName,
+    cfParameters
+  );
+
+  const changeSetType = updateStack
+    ? ChangeSetType.UPDATE
+    : ChangeSetType.CREATE;
+
+  const changeSet = await createChangeSet(
+    cloudFormationClient,
+    cfStackName,
+    changeSetType,
+    cfParameters
+  );
+
+  const changes = await getChanges(
+    cloudFormationClient,
+    cfStackName,
+    changeSet
+  );
+
+  if (changeSet.Id) {
+    if (changes.length) {
+      info(`Applying ChangeSet, this can take a while...`);
+      await applyChangeSet(cloudFormationClient, cfStackName, changeSet.Id);
+      notice(`Successfully applied Stack ChangeSet`);
+    } else {
+      info('(No Stack changes)');
+      await deleteChangeSet(cloudFormationClient, cfStackName, changeSet.Id);
+      info('Successfully deleted ChangeSet');
+    }
+  }
+
+  return changes;
+}
+
+async function deploy(
+  s3Client: S3Client,
+  cloudFormationClient: CloudFormationClient,
+  cloudFrontClient: CloudFrontClient,
+  cfStackName: string,
+  s3BucketName: string,
+  outDir: string,
+  previewUrlHost: string,
+  token: string,
+  changes: Change[]
+) {
+  const isPullRequest = github.context.eventName === 'pull_request';
+
+  if (isPullRequest) {
+    const prBranchName = github.context.payload.pull_request?.head.ref;
+    if (!prBranchName) {
+      throw new Error('Unable to determine head branch name');
+    }
+    info('Deploying Preview site...');
+    await deploySite(
+      s3Client,
+      cloudFormationClient,
+      cloudFrontClient,
+      cfStackName,
+      s3BucketName,
+      outDir,
+      'CFDistributionPreviewId',
+      `preview/${prBranchName}`
+    );
+    await addPRCommentWithChangeSet(
+      changes,
+      previewUrlHost,
+      prBranchName,
+      token
+    );
+  } else {
+    info('Deploying Root site...');
+    await deploySite(
+      s3Client,
+      cloudFormationClient,
+      cloudFrontClient,
+      cfStackName,
+      s3BucketName,
+      outDir,
+      'CFDistributionId',
+      'root'
+    );
+  }
+}
 
 async function run(): Promise<void> {
   try {
-    const isPullRequest = github.context.eventName === 'pull_request';
     const inputs = getInputs();
-    const lambdaVersion = '1-0-3'; //FIXME
-    const region = 'us-east-1';
 
     const cfParameters = getCloudFormationParameters(
       inputs.cfStackName,
@@ -33,7 +126,7 @@ async function run(): Promise<void> {
       inputs.previewCloudFrontHosts,
       inputs.cacheCorsPathPattern,
       inputs.certificateARN,
-      lambdaVersion
+      inputs.lambdaVersion
     );
 
     const cloudFormationClient = new CloudFormationClient({
@@ -46,84 +139,23 @@ async function run(): Promise<void> {
       region,
     });
 
-    const updateStack = await getCreateOrUpdateStack(
+    const changes = await updateCloudFormationStack(
       cloudFormationClient,
       inputs.cfStackName,
       cfParameters
     );
 
-    const changeSetType = updateStack
-      ? ChangeSetType.UPDATE
-      : ChangeSetType.CREATE;
-
-    const changeSet = await createChangeSet(
+    await deploy(
+      s3Client,
       cloudFormationClient,
+      cloudFrontClient,
       inputs.cfStackName,
-      changeSetType,
-      cfParameters
+      inputs.s3BucketName,
+      inputs.outDir,
+      inputs.previewUrlHost,
+      inputs.token,
+      changes
     );
-
-    const changes = await getChanges(
-      cloudFormationClient,
-      inputs.cfStackName,
-      changeSet
-    );
-
-    if (changeSet.Id) {
-      if (changes.length) {
-        info(`Applying ChangeSet, this can take a while...`);
-        await applyChangeSet(
-          cloudFormationClient,
-          inputs.cfStackName,
-          changeSet.Id
-        );
-        notice(`Successfully applied Stack ChangeSet`);
-      } else {
-        info('(No Stack changes)');
-        await deleteChangeSet(
-          cloudFormationClient,
-          inputs.cfStackName,
-          changeSet.Id
-        );
-        info('Successfully deleted ChangeSet');
-      }
-    }
-
-    if (isPullRequest) {
-      const prBranchName = github.context.payload.pull_request?.head.ref;
-      if (!prBranchName) {
-        throw new Error('Unable to determine head branch name');
-      }
-      info('Deploying Preview site...');
-      await deploySite(
-        s3Client,
-        cloudFormationClient,
-        cloudFrontClient,
-        inputs.cfStackName,
-        inputs.s3BucketName,
-        inputs.outDir,
-        'CFDistributionPreviewId',
-        `preview/${prBranchName}`
-      );
-      await addPRCommentWithChangeSet(
-        changes,
-        inputs.previewUrlHost,
-        prBranchName,
-        inputs.token
-      );
-    } else {
-      info('Deploying Root site...');
-      await deploySite(
-        s3Client,
-        cloudFormationClient,
-        cloudFrontClient,
-        inputs.cfStackName,
-        inputs.s3BucketName,
-        inputs.outDir,
-        'CFDistributionId',
-        'root'
-      );
-    }
   } catch (error) {
     if (error instanceof Error) {
       setFailed(error.message);

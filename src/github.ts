@@ -51,6 +51,11 @@ export function getInputs() {
     trimWhitespace: true,
   });
 
+  const lambdaVersion = getInput('lambdaVersion', {
+    required: true,
+    trimWhitespace: true,
+  });
+
   return {
     cfStackName,
     s3BucketName,
@@ -62,5 +67,6 @@ export function getInputs() {
     outDir,
     token,
     previewUrlHost,
+    lambdaVersion,
   };
 }
