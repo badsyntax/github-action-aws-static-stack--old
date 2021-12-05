@@ -1,5 +1,6 @@
 name: 'build-test'
 on: # rebuild any PRs and main branch changes
+  repository_dispatch:
   pull_request:
   push:
     branches:
@@ -7,18 +8,56 @@ on: # rebuild any PRs and main branch changes
       - 'releases/*'
 
 jobs:
+  check-dist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set Node.js 16.x
+        uses: actions/setup-node@v2.5.0
+        with:
+          node-version: 16.x
+      - name: Install dependencies
+        run: npm ci
+      - name: Rebuild the dist/ directory
+        run: npm run build
+      - name: Compare the expected and actual dist/ directories
+        run: |
+          if [ "$(git diff --ignore-space-at-eol dist/ | wc -l)" -gt "0" ]; then
+            echo "Detected uncommitted changes after build.  See status below:"
+            git diff
+            exit 1
+          fi
   build: # make sure build/ci work properly
     runs-on: ubuntu-latest
+    # needs: [check-dist]
     steps:
       - uses: actions/checkout@v2
-      - run: |
-          npm install
-      - run: |
-          npm run all
+      - name: Set Node.js 16.x
+        uses: actions/setup-node@v2.4.1
+        with:
+          node-version: 16.x
+      - run: npm ci
+      - run: npm run all
   test: # make sure the action works on a clean machine without building
     runs-on: ubuntu-latest
+    # needs: [check-dist]
     steps:
       - uses: actions/checkout@v2
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
       - uses: ./
         with:
-          milliseconds: 1000
+          outDir: './out'
+          token: ${{ secrets.GITHUB_TOKEN }}
+          cfStackName: 'static-example-richardwillis-cloudformation-stack'
+          s3BucketName: 'static-example-richardwillis-info-us-east-1'
+          s3AllowedOrigins: 'https://static-example.richardwillis.info, https://*.preview.static-example.richardwillis.info'
+          rootCloudFrontHosts: 'static-example.richardwillis.info'
+          previewCloudFrontHosts: '*.preview.static-example.richardwillis.info'
+          previewUrlHost: 'preview.static-example.richardwillis.info'
+          cacheCorsPathPattern: '/_next/*'
+          certificateARN: 'arn:aws:acm:us-east-1:008215002370:certificate/39df7626-7d2f-42e9-94f4-a3ce61ca3d5e'
