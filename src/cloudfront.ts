@@ -57,11 +57,15 @@ export async function invalidateCloudFrontCache(
     if (!output.Invalidation?.Id) {
       throw new Error('Invalid InvalidationCommand Output');
     }
+    info('Requested a Cloudfront Cache Invalidation');
     await waitForInvalidationToComplete(
       client,
       distributionId,
       output.Invalidation.Id
     );
-    info(`Invalidated CloudFront cache (${items.length} items)`);
+    info(
+      `Successfully invalidated CloudFront cache (${items.length} items) with paths:`
+    );
+    info(`${JSON.stringify(items, null, 2)}`);
   }
 }
