@@ -19,7 +19,7 @@ import {
 } from './cloudformation.js';
 import { getInputs } from './github.js';
 import { addPRCommentWithChangeSet, deploySite } from './deploy.js';
-import { region } from './constants.js';
+import { previewPath, region, rootPath } from './constants.js';
 
 async function updateCloudFormationStack(
   cloudFormationClient: CloudFormationClient,
@@ -91,7 +91,7 @@ async function deploy(
       s3BucketName,
       outDir,
       'CFDistributionPreviewId',
-      `preview/${prBranchName}`
+      `${previewPath}/${prBranchName}`
     );
     await addPRCommentWithChangeSet(
       changes,
@@ -109,7 +109,7 @@ async function deploy(
       s3BucketName,
       outDir,
       'CFDistributionId',
-      'root'
+      rootPath
     );
   }
 }

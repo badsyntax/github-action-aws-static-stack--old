@@ -7,7 +7,7 @@ import {
   InvalidationBatch,
 } from '@aws-sdk/client-cloudfront';
 
-import { defaultDelayMs } from './constants.js';
+import { defaultDelayMs, previewPath } from './constants.js';
 import { delay } from './util.js';
 
 async function waitForInvalidationToComplete(
@@ -50,25 +50,27 @@ async function waitForInvalidationToComplete(
  * /blog (viewer-request)
  * /change-1/blog.html (after-lambda-change, with the CF Distribution S3 OriginPath omitted)
  */
-
 export function getInvalidationPathsFromKeys(
-  keys: string[], // eg ['root/index.html', 'root/css/styles.css', 'preview/branch/blog.html']
+  keys: string[], // eg ['root/index.html', 'root/css/styles.css']
   prefix: string
 ): string[] {
   const pathsByInvalidationType = keys
     .filter((key) => path.extname(key).toLowerCase() === '.html')
     .map((key) => `/${key}`);
   const pathsWithOutPrefix = pathsByInvalidationType.map((path) => {
-    return path.replace(`/${prefix}`, '').replace('index.html', '');
+    return path.replace(`/${prefix}`, '');
   });
-  const items = pathsByInvalidationType.concat(pathsWithOutPrefix);
+  const hasIndex = pathsWithOutPrefix.find((path) =>
+    path.endsWith('index.html')
+  );
+  if (hasIndex) {
+    pathsWithOutPrefix.push('/');
+  }
+  const previewPathsWithoutOriginPath = pathsByInvalidationType
+    .filter((path) => path.startsWith(`/${previewPath}`))
+    .map((path) => path.replace(`/${previewPath}`, ''));
+  const items = previewPathsWithoutOriginPath.concat(pathsWithOutPrefix);
   return items;
-  // const items = keysByInvalidationType
-  //   .map((file) => {
-  //     const path = file.replace(prefix, '');
-  //     return [path.replace('index.html', ''), path.replace('.html', '')];
-  //   })
-  //   .flat();
 }
 
 export async function invalidateCloudFrontCache(
@@ -77,19 +79,12 @@ export async function invalidateCloudFrontCache(
   keys: string[],
   prefix: string
 ): Promise<void> {
-  const items = keys
-    .filter((key) => path.extname(key).toLowerCase() === '.html')
-    .map((file) => {
-      const path = file.replace(prefix, '');
-      return [path.replace('index.html', ''), path.replace('.html', '')];
-    })
-    .flat();
-
-  if (items.length) {
+  const invalidationPaths = getInvalidationPathsFromKeys(keys, prefix);
+  if (invalidationPaths.length) {
     const invalidationBatch: InvalidationBatch = {
       Paths: {
-        Quantity: items.length,
-        Items: items,
+        Quantity: invalidationPaths.length,
+        Items: invalidationPaths,
       },
       CallerReference: `invalidate-paths-${Date.now()}`,
     };
@@ -109,8 +104,8 @@ export async function invalidateCloudFrontCache(
       output.Invalidation.Id
     );
     info(
-      `Successfully invalidated CloudFront cache (${items.length} items) with paths:`
+      `Successfully invalidated CloudFront cache with ${invalidationPaths.length} paths:`
     );
-    info(`${JSON.stringify(items, null, 2)}`);
+    info(`${JSON.stringify(invalidationPaths, null, 2)}`);
   }
 }
