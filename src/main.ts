@@ -129,7 +129,8 @@ async function run(): Promise<void> {
       inputs.previewCloudFrontHosts,
       inputs.cacheCorsPathPattern,
       inputs.certificateARN,
-      inputs.lambdaVersion
+      inputs.lambdaVersion,
+      inputs.removeExtensionFromHtmlFiles
     );
 
     const cloudFormationClient = new CloudFormationClient({

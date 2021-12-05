@@ -30,6 +30,10 @@ Parameters:
     Type: String
     Default: '1-0-0'
     Description: A unique identifier to allow multiple deployments of the CloudFormation stack
+  CloudFrontDefaultRootObject:
+    Type: String
+    Default: 'index.html'
+    Description: The cloudfront default root object. Typically either index.html or index
 
 Resources:
   S3Bucket:
@@ -97,7 +101,7 @@ Resources:
       DistributionConfig:
         Comment: 'CDN for all root static assets'
         Aliases: !Ref RootCloudFrontHosts
-        DefaultRootObject: 'index.html'
+        DefaultRootObject: !Ref CloudFrontDefaultRootObject
         Enabled: true
         HttpVersion: 'http2'
         IPV6Enabled: false
@@ -161,7 +165,7 @@ Resources:
       DistributionConfig:
         Comment: 'CDN for all preview static assets'
         Aliases: !Ref PreviewCloudFrontHosts
-        DefaultRootObject: 'index.html'
+        DefaultRootObject: !Ref CloudFrontDefaultRootObject
         Enabled: true
         HttpVersion: 'http2'
         IPV6Enabled: false
@@ -215,28 +219,28 @@ Resources:
       Runtime: nodejs14.x
       Handler: index.handler
       Code:
-        ZipFile: |
-          function getBranchName(request) {
-            const hostItem = request.headers.host.find(item => item.key === 'Host');
-            const hosts = hostItem.value.split('.');
-            const previewHost = hosts.find(host => host === 'preview');
-            if (!previewHost) {
-              return undefined;
+        ZipFile: !Sub
+          - |
+            function getBranchName(request) {
+              const hostItem = request.headers.host.find(item => item.key === 'Host');
+              const [branchName, preview] = hostItem.value.split('.');
+              if (preview !== 'preview') {
+                return undefined;
+              }
+              return branchName;
             }
-            const [branchName] = hosts;
-            return branchName;
-          }
 
-          exports.handler = (event, context, callback) => {
-            const request = event.Records[0].cf.request;
-            const branchName = getBranchName(request);
-            if (branchName) {
-              const path = request.uri === '/' ? '/index.html' : request.uri;
-              // Note we're already forwarding to /preview via OriginPath
-              request.uri = '/' + branchName + path;
-            }
-            callback(null, request);
-          };
+            exports.handler = (event, context, callback) => {
+              const request = event.Records[0].cf.request;
+              const branchName = getBranchName(request);
+              if (branchName) {
+                const path = request.uri === '/' ? ('/' + '${RootObject}') : request.uri;
+                // Note we're already forwarding to /preview via OriginPath
+                request.uri = '/' + branchName + path;
+              }
+              callback(null, request);
+            };
+          - { RootObject: !Ref CloudFrontDefaultRootObject }
 
   CFLambdaRole:
     Type: AWS::IAM::Role

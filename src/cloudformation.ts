@@ -83,7 +83,8 @@ export function getCloudFormationParameters(
   previewCloudFrontHosts: string,
   cacheCorsPathPattern: string,
   certificateARN: string,
-  lambdaVersion: string
+  lambdaVersion: string,
+  removeExtensionFromHtmlFiles: boolean
 ): Parameter[] {
   return [
     {
@@ -117,6 +118,10 @@ export function getCloudFormationParameters(
     {
       ParameterKey: 'LambdaVersion',
       ParameterValue: lambdaVersion,
+    },
+    {
+      ParameterKey: 'CloudFrontDefaultRootObject',
+      ParameterValue: removeExtensionFromHtmlFiles ? 'index' : 'index.html',
     },
   ];
 }

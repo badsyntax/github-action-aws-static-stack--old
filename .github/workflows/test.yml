@@ -58,7 +58,7 @@ jobs:
         with:
           outDir: './out'
           token: ${{ secrets.GITHUB_TOKEN }}
-          lambdaVersion: '1.0.0'
+          lambdaVersion: '1.0.6'
           cfStackName: 'static-example-richardwillis-cloudformation-stack'
           s3BucketName: 'static-example-richardwillis-info-us-east-1'
           s3AllowedOrigins: 'https://static-example.richardwillis.info, https://*.preview.static-example.richardwillis.info'
