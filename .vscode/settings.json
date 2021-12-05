@@ -1,8 +1,9 @@
 {
-  "files.exclude": {
-    "dist": false,
-    "lib": false,
-    "package-lock.json": false
+  "search.exclude": {
+    "**/node_modules": true,
+    "dist/**": true,
+    "lib/**": true,
+    "package-lock.json": true
   },
   "typescript.updateImportsOnFileMove.enabled": "always",
   "typescript.tsserver.experimental.enableProjectDiagnostics": false,
