@@ -2,17 +2,20 @@
 
 A GitHub Action to deploy your static website to the AWS Edge 🔥.
 
+_CURRENTLY IN ALPHA - NOT FIT FOR PUBLIC USE_
+
 Includes:
 
 - S3 for hosting files
 - Cloudfront for Edge caching
 - Caching headers configured correctly
 - AWS Stack create/update (via CloudFormation)
-- Preview websites (eg branchname.preview.example.com)
+- Preview websites (eg `branchname.preview.example.com`)
+- File sync and invalidation by contents hash
 
 ## Usage
 
-First you need to create a new certificate for your root and preview hosts. This is a manual step as it requires manual validation.
+First you need to create a certificate for your root and preview hosts. This is a manual step as it requires manual validation.
 
 Open the [AWS Certificate Manager](https://console.aws.amazon.com/acm/home?region=us-east-1) and Request a new public certificate for the following domains:
 
@@ -20,7 +23,7 @@ Open the [AWS Certificate Manager](https://console.aws.amazon.com/acm/home?regio
 - `*.example`
 - `*.preview.example.com`
 
-Once the certificate is created, copy the Certificate ARN and use it configure the action:
+Once the certificate is created, copy the Certificate ARN and use it to configure the action:
 
 ```yaml
 steps:
@@ -33,16 +36,22 @@ steps:
       aws-region: us-east-1
   - uses: ./
     with:
+      outDir: './out'
+      token: ${{ secrets.GITHUB_TOKEN }}
       cfStackName: 'static-example-richardwillis-cloudformation-stack'
       s3BucketName: 'static-example-richardwillis-info-us-east-1'
-      s3AllowedOrigins: 'https://example.com'
+      s3AllowedOrigins: 'https://example.com, https://*.preview.example.com'
       rootCloudFrontHosts: 'example.com'
       previewCloudFrontHosts: '*.preview.example.com'
+      previewUrlHost: 'preview.example.com'
       cacheCorsPathPattern: '/_next/*'
       certificateARN: 'arn:aws:acm:us-east-1:1234567:certificate/123abc-123abc-1234-5678-abcdef'
 ```
 
-Next send a Pull Request to trigger the action. The S
+Next send a Pull Request to trigger the action.
+
+- The Stack will be created/updated, and a new preview site deployed, for every Pull Request
+- The Stack will be created/updated, and the root site deployed, for every push event to master/main/release branch
 
 ## Caching Strategy
 

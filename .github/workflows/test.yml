@@ -55,7 +55,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           cfStackName: 'static-example-richardwillis-cloudformation-stack'
           s3BucketName: 'static-example-richardwillis-info-us-east-1'
-          s3AllowedOrigins: 'https://static-example.richardwillis.info'
+          s3AllowedOrigins: 'https://static-example.richardwillis.info, https://*.preview.static-example.richardwillis.info'
           rootCloudFrontHosts: 'static-example.richardwillis.info'
           previewCloudFrontHosts: '*.preview.static-example.richardwillis.info'
           previewUrlHost: 'preview.static-example.richardwillis.info'
