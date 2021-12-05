@@ -9,7 +9,6 @@ import { S3Client } from '@aws-sdk/client-s3';
 
 import {
   getCloudFormationParameters,
-  addCommentWithChangeSet,
   getCreateOrUpdateStack,
   createChangeSet,
   getChanges,
@@ -17,7 +16,7 @@ import {
   deleteChangeSet,
 } from './cloudformation.js';
 import { getInputs } from './github.js';
-import { deploySite } from './deploy.js';
+import { addPRCommentWithChangeSet, deploySite } from './deploy.js';
 
 async function run(): Promise<void> {
   try {
@@ -70,10 +69,6 @@ async function run(): Promise<void> {
       changeSet
     );
 
-    if (isPullRequest) {
-      await addCommentWithChangeSet(changes, inputs.token);
-    }
-
     if (changeSet.Id) {
       if (changes.length) {
         info(`Applying ChangeSet, this can take a while...`);
@@ -107,6 +102,12 @@ async function run(): Promise<void> {
         inputs.outDir,
         'CFDistributionPreviewId',
         `preview/${prBranchName}`
+      );
+      await addPRCommentWithChangeSet(
+        changes,
+        inputs.previewUrlHost,
+        prBranchName,
+        inputs.token
       );
     } else {
       info('Deploying Root site...');

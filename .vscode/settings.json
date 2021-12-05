@@ -25,5 +25,5 @@
   "files.insertFinalNewline": true,
   "files.trimTrailingWhitespace": true,
   "cSpell.language": "en-GB",
-  "cSpell.words": ["globber", "maxage", "richardwillis", "vars"]
+  "cSpell.words": ["Behavior", "globber", "maxage", "richardwillis", "vars"]
 }

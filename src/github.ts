@@ -46,6 +46,11 @@ export function getInputs() {
     trimWhitespace: true,
   });
 
+  const previewUrlHost = getInput('previewUrlHost', {
+    required: true,
+    trimWhitespace: true,
+  });
+
   return {
     cfStackName,
     s3BucketName,
@@ -56,5 +61,6 @@ export function getInputs() {
     certificateARN,
     outDir,
     token,
+    previewUrlHost,
   };
 }

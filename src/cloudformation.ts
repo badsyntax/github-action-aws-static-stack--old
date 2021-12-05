@@ -1,8 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import github from '@actions/github';
 import { debug, info, notice, warning } from '@actions/core';
-import { markdownTable } from 'markdown-table';
 import {
   Parameter,
   CloudFormationClient,
@@ -419,82 +417,4 @@ export async function getCreateOrUpdateStack(
   }
 
   return update;
-}
-
-function getChangeSetTable(changes: Change[]): string {
-  if (!changes.length) {
-    return '';
-  }
-  const headings = [
-    ['', 'ResourceType', 'LogicalResourceId', 'Action', 'Replacement'],
-  ];
-  const rows: [string, string, string, string, string][] = changes.map(
-    (change) => [
-      '⚠️',
-      String(change.ResourceChange?.ResourceType),
-      String(change.ResourceChange?.LogicalResourceId),
-      String(change.ResourceChange?.Action),
-      String(change.ResourceChange?.Replacement),
-    ]
-  );
-  return markdownTable(headings.concat(rows), {
-    align: ['l', 'l', 'l', 'l', 'l'],
-  });
-}
-
-function getCommentMarkdown(changes: Change[], changeSetTable: string): string {
-  return `${
-    changes.length
-      ? `
-Stack ChangeSet:
-
-${changeSetTable}
-
-The above changes will be applied.`
-      : `
-✅ No Stack changes`
-  }`;
-}
-
-function generateCommentId(issue: typeof github.context.issue): string {
-  return `Stack ChangeSet (ID:${issue.number})`;
-}
-
-export async function addCommentWithChangeSet(
-  changes: Change[],
-  token: string
-): Promise<void> {
-  const changeSetTable = getChangeSetTable(changes);
-  const markdown = getCommentMarkdown(changes, changeSetTable);
-
-  const issue = github.context.issue;
-  const commentId = generateCommentId(github.context.issue);
-  const body = `${commentId}\n${markdown}`;
-  const octokit = github.getOctokit(token);
-
-  const comments = await octokit.rest.issues.listComments({
-    issue_number: issue.number,
-    owner: issue.owner,
-    repo: issue.repo,
-  });
-
-  const existingComment = comments.data.find((comment) =>
-    comment.body?.startsWith(commentId)
-  );
-
-  if (existingComment) {
-    await octokit.rest.issues.deleteComment({
-      issue_number: issue.number,
-      body: body,
-      owner: issue.owner,
-      repo: issue.repo,
-      comment_id: existingComment.id,
-    });
-  }
-  await octokit.rest.issues.createComment({
-    issue_number: issue.number,
-    body: body,
-    owner: issue.owner,
-    repo: issue.repo,
-  });
 }

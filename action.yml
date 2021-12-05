@@ -17,6 +17,9 @@ inputs:
   previewCloudFrontHosts:
     required: true
     description: 'A list of hosts assigned to the Preview CloudFront distribution. For example: "*.preview.example.com"'
+  previewUrlHost:
+    required: true
+    description: 'The host used for generating preview URLs. For example: "preview.example.com"'
   cacheCorsPathPattern:
     required: true
     description: 'The path pattern for which you want to apply the caching & CORS policy (cannot be root). For example: "/_next/*"'
