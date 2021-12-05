@@ -66,6 +66,9 @@ export function getInvalidationPathsFromKeys(
   if (hasIndex) {
     pathsWithOutPrefix.push('/');
   }
+  // As per https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/Invalidation.html#invalidation-specifying-objects,
+  // we need to invalidate the lambda adjusted url, but only for preview sites, as
+  // the root site does not use a lambda to rewrite the url.
   const previewPathsWithoutOriginPath = pathsByInvalidationType
     .filter((path) => path.startsWith(`/${previewPath}`))
     .map((path) => path.replace(`/${previewPath}`, ''));
