@@ -35,11 +35,17 @@ async function waitForInvalidationToComplete(
 export async function invalidateCloudFrontCache(
   client: CloudFrontClient,
   distributionId: string,
-  keys: string[]
+  keys: string[],
+  prefix: string
 ): Promise<void> {
   const items = keys
     .filter((key) => path.extname(key).toLowerCase() === '.html')
-    .map((file) => '/' + file);
+    .map((file) => {
+      const path = file.replace(prefix, '');
+      return [path.replace('index.html', ''), path.replace('.html', '')];
+    })
+    .flat();
+
   if (items.length) {
     const invalidationBatch: InvalidationBatch = {
       Paths: {
@@ -57,7 +63,7 @@ export async function invalidateCloudFrontCache(
     if (!output.Invalidation?.Id) {
       throw new Error('Invalid InvalidationCommand Output');
     }
-    info('Requested a Cloudfront Cache Invalidation');
+    info('Requested a Cloudfront Cache Invalidation, waiting...');
     await waitForInvalidationToComplete(
       client,
       distributionId,

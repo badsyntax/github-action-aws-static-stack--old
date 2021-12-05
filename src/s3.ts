@@ -145,7 +145,7 @@ export async function syncFilesToS3(
       info(`Skipped ${key} (no change)`);
     }
   }
-  info(`Uploaded ${uploadedKeys.length} files`);
+  info(`Synced ${uploadedKeys.length} files`);
   return uploadedKeys;
 }
 

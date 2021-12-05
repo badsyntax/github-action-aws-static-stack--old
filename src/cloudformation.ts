@@ -383,7 +383,7 @@ export async function getChanges(
   if (!changeSet.Id) {
     throw new Error('ChangSet did not generate an ARN');
   }
-  info(`Generating list of changes...`);
+  info(`Generating list of Stack changes...`);
   return describeChangeSet(client, cfStackName, changeSet.Id);
 }
 

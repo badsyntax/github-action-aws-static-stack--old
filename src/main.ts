@@ -79,7 +79,7 @@ async function run(): Promise<void> {
         );
         notice(`Successfully applied Stack ChangeSet`);
       } else {
-        info('(No changes)');
+        info('(No Stack changes)');
         await deleteChangeSet(
           cloudFormationClient,
           inputs.cfStackName,

@@ -217,10 +217,12 @@ Resources:
       Code:
         ZipFile: |
           function getBranchName(request) {
+            console.log('request.headers.host', request.headers.host);
             const hostItem = request.headers.host.find(item => item.key === 'Host');
             const hosts = hostItem.value.split('.');
+            console.log('hosts', hosts);
             const previewHost = hosts.find(host => host === 'preview');
-            if (!previewHost || hosts.length !== 4) {
+            if (!previewHost) {
               return undefined;
             }
             const [branchName] = hosts;
@@ -230,10 +232,12 @@ Resources:
           exports.handler = (event, context, callback) => {
             const request = event.Records[0].cf.request;
             const branchName = getBranchName(request);
+            console.log('got branchname', branchName)
             if (branchName) {
               const path = request.uri === '/' ? '/index.html' : request.uri;
               request.uri = '/preview/' + branchName + path;
             }
+            console.log('request.uri', request.uri)
             callback(null, request);
           };
 
