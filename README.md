@@ -13,9 +13,16 @@ Includes:
 - Preview websites (eg `branchname.preview.example.com`)
 - File sync and invalidation by contents hash
 
+## Getting Started
+
+Before beginning you should understand the following:
+
+- Various AWS resources will be created which which incur costs on your AWS account
+- All AWS resources are created in the `us-east-1` region, as this is where the CloudFront control pane sits and requires resources (eg certificates & buckets) to be created in the same region. Also, there would be additional S3 data transfer charges if the Lambda@Edge executions are happening in a different AWS Region from where your source S3 bucket is located.
+
 ## Usage
 
-First you need to create a certificate for your root and preview hosts. This is a manual step as it requires manual validation.
+First you need to create a certificate for your root and preview hosts, in the `us-east-1` region.
 
 Open the [AWS Certificate Manager](https://console.aws.amazon.com/acm/home?region=us-east-1) and Request a new public certificate for the following domains:
 
@@ -23,7 +30,7 @@ Open the [AWS Certificate Manager](https://console.aws.amazon.com/acm/home?regio
 - `*.example`
 - `*.preview.example.com`
 
-Once the certificate is created, copy the Certificate ARN and use it to configure the action:
+Once the certificate is created & verified, copy the Certificate ARN and use it to configure the action:
 
 ```yaml
 steps:
@@ -38,6 +45,7 @@ steps:
     with:
       outDir: './out'
       token: ${{ secrets.GITHUB_TOKEN }}
+      lambdaVersion: '1.0.0'
       cfStackName: 'static-example-richardwillis-cloudformation-stack'
       s3BucketName: 'static-example-richardwillis-info-us-east-1'
       s3AllowedOrigins: 'https://example.com, https://*.preview.example.com'

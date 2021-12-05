@@ -220,7 +220,7 @@ Resources:
             const hostItem = request.headers.host.find(item => item.key === 'Host');
             const hosts = hostItem.value.split('.');
             const previewHost = hosts.find(host => host === 'preview');
-            if (!previewHost || hosts.length !== 4) {
+            if (!previewHost) {
               return undefined;
             }
             const [branchName] = hosts;
@@ -232,7 +232,8 @@ Resources:
             const branchName = getBranchName(request);
             if (branchName) {
               const path = request.uri === '/' ? '/index.html' : request.uri;
-              request.uri = '/preview/' + branchName + path;
+              // Note we're already forwarding to /preview via OriginPath
+              request.uri = '/' + branchName + path;
             }
             callback(null, request);
           };

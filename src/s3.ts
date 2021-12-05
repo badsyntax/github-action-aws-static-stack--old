@@ -11,8 +11,9 @@ import {
 } from '@aws-sdk/client-s3';
 import glob from '@actions/glob';
 import { info } from '@actions/core';
+import { previewPath, rootPath } from './constants';
 
-export type S3ObjectPrefix = 'root' | 'preview';
+export type S3ObjectPrefix = typeof rootPath | typeof previewPath;
 
 export async function getObjectMetadata(
   client: S3Client,
@@ -145,14 +146,6 @@ export async function syncFilesToS3(
       info(`Skipped ${key} (no change)`);
     }
   }
-  info(`Uploaded ${uploadedKeys.length} files`);
+  info(`Synced ${uploadedKeys.length} files`);
   return uploadedKeys;
-}
-
-export async function syncFilesToPreview(
-  client: S3Client,
-  s3BucketName: string,
-  outDir: string
-): Promise<string[]> {
-  return syncFilesToS3(client, s3BucketName, outDir, 'preview');
 }

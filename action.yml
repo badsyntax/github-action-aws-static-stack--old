@@ -33,6 +33,9 @@ inputs:
   token:
     required: true
     description: 'GitHub Token. For example: 12344567abcdef'
+  lambdaVersion:
+    required: true
+    description: 'The Lambda Version. You must increment this version to deploy a new Lambda version. For example: "1.0.0"'
 runs:
   using: 'node16'
   main: 'dist/index.js'

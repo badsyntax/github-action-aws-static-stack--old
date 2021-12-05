@@ -1,5 +1,10 @@
 name: 'build-test'
-on: # rebuild any PRs and master branch changes
+
+concurrency:
+  group: prod_deploy
+  cancel-in-progress: false
+
+on:
   repository_dispatch:
   pull_request:
   push:
@@ -53,6 +58,7 @@ jobs:
         with:
           outDir: './out'
           token: ${{ secrets.GITHUB_TOKEN }}
+          lambdaVersion: '1.0.0'
           cfStackName: 'static-example-richardwillis-cloudformation-stack'
           s3BucketName: 'static-example-richardwillis-info-us-east-1'
           s3AllowedOrigins: 'https://static-example.richardwillis.info, https://*.preview.static-example.richardwillis.info'

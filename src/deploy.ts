@@ -34,7 +34,8 @@ export async function deploySite(
   await invalidateCloudFrontCache(
     cloudFrontClient,
     distributionIdOutput.OutputValue,
-    syncedFiles
+    syncedFiles,
+    prefix
   );
 }
 
