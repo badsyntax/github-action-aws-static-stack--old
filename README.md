@@ -1,5 +1,7 @@
 # AWS Static Stack GitHub Action
 
+[![Build & Deploy](https://github.com/badsyntax/github-action-aws-static-stack/actions/workflows/build-deploy.yml/badge.svg)](https://github.com/badsyntax/github-action-aws-static-stack/actions/workflows/build-deploy.yml)
+
 A GitHub Action to deploy your static website to the AWS Edge 🔥.
 
 _CURRENTLY IN ALPHA - NOT FIT FOR PUBLIC USE_
