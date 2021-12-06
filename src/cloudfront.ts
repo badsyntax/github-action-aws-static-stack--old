@@ -6,9 +6,11 @@ import {
   GetInvalidationCommand,
   InvalidationBatch,
 } from '@aws-sdk/client-cloudfront';
+import { CloudFormationClient } from '@aws-sdk/client-cloudformation';
 
 import { defaultDelayMs, previewPath } from './constants.js';
 import { delay } from './util.js';
+import { describeStack } from './cloudformation.js';
 
 async function waitForInvalidationToComplete(
   client: CloudFrontClient,
@@ -83,18 +85,16 @@ export function getInvalidationPathsFromKeys(
   return uniqueItems;
 }
 
-export async function invalidateCloudFrontCache(
+export async function invalidateCloudFrontCacheWithPaths(
   client: CloudFrontClient,
   distributionId: string,
-  keys: string[],
-  prefix: string
+  paths: string[]
 ): Promise<void> {
-  const invalidationPaths = getInvalidationPathsFromKeys(keys, prefix);
-  if (invalidationPaths.length) {
+  if (paths.length) {
     const invalidationBatch: InvalidationBatch = {
       Paths: {
-        Quantity: invalidationPaths.length,
-        Items: invalidationPaths,
+        Quantity: paths.length,
+        Items: paths,
       },
       CallerReference: `invalidate-paths-${Date.now()}`,
     };
@@ -114,8 +114,8 @@ export async function invalidateCloudFrontCache(
       output.Invalidation.Id
     );
     info(
-      `Successfully invalidated CloudFront cache with ${invalidationPaths.length} paths:`
+      `Successfully invalidated CloudFront cache with ${paths.length} paths:`
     );
-    info(`${JSON.stringify(invalidationPaths, null, 2)}`);
+    info(`${JSON.stringify(paths, null, 2)}`);
   }
 }

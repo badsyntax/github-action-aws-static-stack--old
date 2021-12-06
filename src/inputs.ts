@@ -68,6 +68,12 @@ export function getInputs() {
       trimWhitespace: true,
     }).toLowerCase() === 'true';
 
+  const deletePreviewSiteOnPRClose =
+    getInput('deletePreviewSiteOnPRClose', {
+      required: true,
+      trimWhitespace: true,
+    }).toLowerCase() === 'true';
+
   return {
     cfStackName,
     s3BucketName,
@@ -82,5 +88,6 @@ export function getInputs() {
     lambdaVersion,
     removeExtensionFromHtmlFiles,
     executeStackChangeSet,
+    deletePreviewSiteOnPRClose,
   };
 }
