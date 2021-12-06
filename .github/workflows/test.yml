@@ -1,12 +1,6 @@
-name: 'build-test'
-
-concurrency:
-  group: prod_deploy
-  cancel-in-progress: false
+name: 'Build & Test'
 
 on:
-  repository_dispatch:
-  workflow_dispatch:
   pull_request:
   push:
     branches:
@@ -33,7 +27,7 @@ jobs:
             git diff
             exit 1
           fi
-  build:
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -43,28 +37,3 @@ jobs:
           node-version: 16.x
       - run: npm ci
       - run: npm run all
-  test:
-    runs-on: ubuntu-latest
-    if: github.actor != 'dependabot[bot]' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
-    steps:
-      - uses: actions/checkout@v2
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
-      - uses: ./
-        with:
-          outDir: './out'
-          token: ${{ secrets.GITHUB_TOKEN }}
-          lambdaVersion: '1.0.6'
-          cfStackName: 'static-example-richardwillis-cloudformation-stack'
-          s3BucketName: 'static-example-richardwillis-info-us-east-1'
-          s3AllowedOrigins: 'https://static-example.richardwillis.info, https://*.preview.static-example.richardwillis.info'
-          rootCloudFrontHosts: 'static-example.richardwillis.info'
-          previewCloudFrontHosts: '*.preview.static-example.richardwillis.info'
-          previewUrlHost: 'preview.static-example.richardwillis.info'
-          cacheCorsPathPattern: '/_next/*'
-          certificateARN: 'arn:aws:acm:us-east-1:008215002370:certificate/39df7626-7d2f-42e9-94f4-a3ce61ca3d5e'
-          removeExtensionFromHtmlFiles: true
