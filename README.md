@@ -130,3 +130,7 @@ An edge lambda is used to route preview requests to the correct location in S3.
 2. For serving the preview domain, eg branchname.preview.example.com
 
 2 distributions are required to ensure the fastest possible edge caching for the root domain, as an Edge Lambda is used for preview sites.
+
+## License
+
+See [LICENSE.md](./LICENSE.md).
