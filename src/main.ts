@@ -1,4 +1,4 @@
-import { info, notice, setFailed } from '@actions/core';
+import { info, notice, setFailed, warning } from '@actions/core';
 import github from '@actions/github';
 import {
   Change,
@@ -74,10 +74,9 @@ async function deploy(
   previewUrlHost: string,
   token: string,
   removeExtensionFromHtmlFiles: boolean,
-  changes: Change[]
+  changes: Change[],
+  isPullRequest: boolean
 ) {
-  const isPullRequest = github.context.eventName === 'pull_request';
-
   if (isPullRequest) {
     const prBranchName = github.context.payload.pull_request?.head.ref;
     if (!prBranchName) {
@@ -117,50 +116,80 @@ async function deploy(
   }
 }
 
-async function run(): Promise<void> {
+async function deletePreviewSite() {
+  //
+}
+
+function checkIsValidGitHubEvent() {
+  const action = github.context.action;
+  switch (github.context.eventName) {
+    case 'repository_dispatch':
+    case 'workflow_dispatch':
+    case 'push':
+      return true;
+    case 'pull_request':
+      return ['opened', 'synchronize', 'reopened', 'closed'].includes(action);
+  }
+  throw new Error(`Invalid GitHub event: ${github.context.eventName}`);
+}
+
+export async function run(): Promise<void> {
   try {
     const inputs = getInputs();
+    checkIsValidGitHubEvent();
+    const isPullRequest = github.context.eventName === 'pull_request';
+    const isPullRequestClosed =
+      isPullRequest && github.context.action === 'closed';
 
-    const cfParameters = getCloudFormationParameters(
-      inputs.cfStackName,
-      inputs.s3BucketName,
-      inputs.s3AllowedOrigins,
-      inputs.rootCloudFrontHosts,
-      inputs.previewCloudFrontHosts,
-      inputs.cacheCorsPathPattern,
-      inputs.certificateARN,
-      inputs.lambdaVersion,
-      inputs.removeExtensionFromHtmlFiles
-    );
-
-    const cloudFormationClient = new CloudFormationClient({
-      region,
-    });
-    const s3Client = new S3Client({
-      region,
-    });
-    const cloudFrontClient = new CloudFrontClient({
-      region,
-    });
-
-    const changes = await updateCloudFormationStack(
-      cloudFormationClient,
-      inputs.cfStackName,
-      cfParameters
-    );
-
-    await deploy(
-      s3Client,
-      cloudFormationClient,
-      cloudFrontClient,
-      inputs.cfStackName,
-      inputs.s3BucketName,
-      inputs.outDir,
-      inputs.previewUrlHost,
-      inputs.token,
-      inputs.removeExtensionFromHtmlFiles,
-      changes
-    );
+    if (isPullRequestClosed) {
+      await deletePreviewSite();
+    } else {
+      const cfParameters = getCloudFormationParameters(
+        inputs.cfStackName,
+        inputs.s3BucketName,
+        inputs.s3AllowedOrigins,
+        inputs.rootCloudFrontHosts,
+        inputs.previewCloudFrontHosts,
+        inputs.cacheCorsPathPattern,
+        inputs.certificateARN,
+        inputs.lambdaVersion,
+        inputs.removeExtensionFromHtmlFiles
+      );
+      const cloudFormationClient = new CloudFormationClient({
+        region,
+      });
+      const s3Client = new S3Client({
+        region,
+      });
+      const cloudFrontClient = new CloudFrontClient({
+        region,
+      });
+      if (!inputs.executeStackChangeSet) {
+        warning(
+          `Skipping Stack creation as executeStackChangeSet input is set to: ${inputs.executeStackChangeSet}`
+        );
+      }
+      const changes = inputs.executeStackChangeSet
+        ? await updateCloudFormationStack(
+            cloudFormationClient,
+            inputs.cfStackName,
+            cfParameters
+          )
+        : [];
+      await deploy(
+        s3Client,
+        cloudFormationClient,
+        cloudFrontClient,
+        inputs.cfStackName,
+        inputs.s3BucketName,
+        inputs.outDir,
+        inputs.previewUrlHost,
+        inputs.token,
+        inputs.removeExtensionFromHtmlFiles,
+        changes,
+        isPullRequest
+      );
+    }
   } catch (error) {
     if (error instanceof Error) {
       setFailed(error.message);

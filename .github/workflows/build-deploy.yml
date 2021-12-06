@@ -30,7 +30,7 @@ jobs:
         id: changeset
         run: echo "::set-output name=executechangeset::$EXECUTE_CHANGESET"
         env:
-          EXECUTE_CHANGESET: ${{ github.event_name != 'repository_dispatch' }}
+          EXECUTE_CHANGESET: ${{ github.event_name == 'repository_dispatch' }}
       - uses: ./
         name: Deploy Static Site
         with:

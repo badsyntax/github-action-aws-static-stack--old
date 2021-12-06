@@ -7,6 +7,7 @@
   - See: if: github.event.pull_request.head.repo.full_name == github.repository
   - Don't do any AWS stuff if PR from fork
 - [ ] Optionally delete Preview site when PR is closed
+- [ ] Optional stack creation (useful to bypass when `repository_dispatch` is used to build & deploy from external system)
 - [ ] Fix compression for preview sites
 - [ ] Use origin-request instead of viewer-request for the preview lambda?
 - [ ] Update license and codeowners
