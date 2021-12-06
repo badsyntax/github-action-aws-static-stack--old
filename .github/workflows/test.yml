@@ -33,9 +33,8 @@ jobs:
             git diff
             exit 1
           fi
-  build: # make sure build/ci work properly
+  build:
     runs-on: ubuntu-latest
-    # needs: [check-dist]
     steps:
       - uses: actions/checkout@v2
       - name: Set Node.js 16.x
@@ -44,10 +43,9 @@ jobs:
           node-version: 16.x
       - run: npm ci
       - run: npm run all
-  test: # make sure the action works on a clean machine without building
+  test:
     runs-on: ubuntu-latest
-    if: github.event.pull_request.head.repo.full_name == github.repository
-    # needs: [check-dist]
+    if: github.actor != 'dependabot[bot]' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     steps:
       - uses: actions/checkout@v2
       - name: Configure AWS Credentials
