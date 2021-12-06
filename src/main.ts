@@ -1,4 +1,4 @@
-import { info, notice, setFailed } from '@actions/core';
+import { debug, info, notice, setFailed, warning } from '@actions/core';
 import github from '@actions/github';
 import {
   Change,
@@ -18,8 +18,9 @@ import {
   deleteChangeSet,
 } from './cloudformation.js';
 import { getInputs } from './inputs.js';
-import { addPRCommentWithChangeSet, deploySite } from './deploy.js';
+import { deletePreviewSite, deploySite } from './deploy.js';
 import { previewPath, region, rootPath } from './constants.js';
+import { addPRCommentWithChangeSet, deletePRComment } from './github.js';
 
 async function updateCloudFormationStack(
   cloudFormationClient: CloudFormationClient,
@@ -74,12 +75,11 @@ async function deploy(
   previewUrlHost: string,
   token: string,
   removeExtensionFromHtmlFiles: boolean,
-  changes: Change[]
+  changes: Change[],
+  isPullRequest: boolean,
+  prBranchName?: string
 ) {
-  const isPullRequest = github.context.eventName === 'pull_request';
-
   if (isPullRequest) {
-    const prBranchName = github.context.payload.pull_request?.head.ref;
     if (!prBranchName) {
       throw new Error('Unable to determine head branch name');
     }
@@ -95,6 +95,7 @@ async function deploy(
       'CFDistributionPreviewId',
       `${previewPath}/${prBranchName}`
     );
+    await deletePRComment(token);
     await addPRCommentWithChangeSet(
       changes,
       previewUrlHost,
@@ -117,21 +118,32 @@ async function deploy(
   }
 }
 
-async function run(): Promise<void> {
-  try {
-    const inputs = getInputs();
+function checkIsValidGitHubEvent() {
+  const action = github.context.action;
+  switch (github.context.eventName) {
+    case 'repository_dispatch':
+    case 'workflow_dispatch':
+    case 'push':
+      return true;
+    case 'pull_request':
+      return ['opened', 'synchronize', 'reopened', 'closed'].includes(action);
+  }
+  throw new Error(`Invalid GitHub event: ${github.context.eventName}`);
+}
 
-    const cfParameters = getCloudFormationParameters(
-      inputs.cfStackName,
-      inputs.s3BucketName,
-      inputs.s3AllowedOrigins,
-      inputs.rootCloudFrontHosts,
-      inputs.previewCloudFrontHosts,
-      inputs.cacheCorsPathPattern,
-      inputs.certificateARN,
-      inputs.lambdaVersion,
-      inputs.removeExtensionFromHtmlFiles
-    );
+export async function run(): Promise<void> {
+  try {
+    checkIsValidGitHubEvent();
+
+    const inputs = getInputs();
+    const isPullRequest = github.context.eventName === 'pull_request';
+    const isPullRequestClosed =
+      isPullRequest && github.context.action === 'closed';
+    const prBranchName = github.context.payload.pull_request?.head.ref;
+
+    debug(`isPullRequest: ${isPullRequest}`);
+    debug(`isPullRequestClosed: ${isPullRequestClosed}`);
+    debug(`prBranchName: ${prBranchName}`);
 
     const cloudFormationClient = new CloudFormationClient({
       region,
@@ -143,24 +155,60 @@ async function run(): Promise<void> {
       region,
     });
 
-    const changes = await updateCloudFormationStack(
-      cloudFormationClient,
-      inputs.cfStackName,
-      cfParameters
-    );
+    if (isPullRequestClosed) {
+      if (inputs.deletePreviewSiteOnPRClose) {
+        await deletePreviewSite(
+          s3Client,
+          cloudFormationClient,
+          cloudFrontClient,
+          inputs.cfStackName,
+          'CFDistributionPreviewId',
+          inputs.s3BucketName,
+          `${previewPath}/${prBranchName}`,
+          inputs.token
+        );
+      }
+    } else {
+      const cfParameters = getCloudFormationParameters(
+        inputs.cfStackName,
+        inputs.s3BucketName,
+        inputs.s3AllowedOrigins,
+        inputs.rootCloudFrontHosts,
+        inputs.previewCloudFrontHosts,
+        inputs.cacheCorsPathPattern,
+        inputs.certificateARN,
+        inputs.lambdaVersion,
+        inputs.removeExtensionFromHtmlFiles
+      );
 
-    await deploy(
-      s3Client,
-      cloudFormationClient,
-      cloudFrontClient,
-      inputs.cfStackName,
-      inputs.s3BucketName,
-      inputs.outDir,
-      inputs.previewUrlHost,
-      inputs.token,
-      inputs.removeExtensionFromHtmlFiles,
-      changes
-    );
+      if (!inputs.executeStackChangeSet) {
+        warning(
+          `Skipping Stack creation as executeStackChangeSet input is set to: ${inputs.executeStackChangeSet}`
+        );
+      }
+      const changes = inputs.executeStackChangeSet
+        ? await updateCloudFormationStack(
+            cloudFormationClient,
+            inputs.cfStackName,
+            cfParameters
+          )
+        : [];
+
+      await deploy(
+        s3Client,
+        cloudFormationClient,
+        cloudFrontClient,
+        inputs.cfStackName,
+        inputs.s3BucketName,
+        inputs.outDir,
+        inputs.previewUrlHost,
+        inputs.token,
+        inputs.removeExtensionFromHtmlFiles,
+        changes,
+        isPullRequest,
+        prBranchName
+      );
+    }
   } catch (error) {
     if (error instanceof Error) {
       setFailed(error.message);

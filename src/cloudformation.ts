@@ -423,3 +423,18 @@ export async function getCreateOrUpdateStack(
 
   return update;
 }
+
+export async function getCloudFrontDistributionId(
+  cloudFormationClient: CloudFormationClient,
+  cfStackName: string,
+  cfDistributionId: string
+): Promise<string> {
+  const stack = await describeStack(cloudFormationClient, cfStackName);
+  const distributionIdOutput = (stack.Outputs || []).find(
+    (output) => output.OutputKey === cfDistributionId
+  );
+  if (!distributionIdOutput?.OutputValue) {
+    throw new Error('CFDistributionPreviewId output not found');
+  }
+  return distributionIdOutput.OutputValue;
+}

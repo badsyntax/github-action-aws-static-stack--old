@@ -3,15 +3,18 @@ import fs from 'node:fs';
 import crypto from 'node:crypto';
 import mime from 'mime-types';
 import {
+  DeleteObjectsCommand,
   HeadObjectCommand,
   HeadObjectCommandOutput,
+  ListObjectsV2Command,
   PutObjectCommand,
   PutObjectCommandOutput,
   S3Client,
 } from '@aws-sdk/client-s3';
 import glob from '@actions/glob';
 import { info } from '@actions/core';
-import { previewPath, rootPath } from './constants';
+import { previewPath, rootPath } from './constants.js';
+import { deletePRComment } from './github.js';
 
 export type S3ObjectPrefix = typeof rootPath | typeof previewPath;
 
@@ -161,4 +164,32 @@ export async function syncFilesToS3(
   }
   info(`Synced ${uploadedKeys.length} files`);
   return uploadedKeys;
+}
+
+export async function emptyS3Directory(
+  client: S3Client,
+  s3BucketName: string,
+  prefix: string
+): Promise<void> {
+  const objects = await client.send(
+    new ListObjectsV2Command({
+      Bucket: s3BucketName,
+      Prefix: prefix,
+    })
+  );
+
+  if (!objects.Contents?.length) {
+    return;
+  }
+
+  await client.send(
+    new DeleteObjectsCommand({
+      Bucket: s3BucketName,
+      Delete: { Objects: objects.Contents.map(({ Key }) => ({ Key })) },
+    })
+  );
+
+  if (objects.IsTruncated) {
+    return await emptyS3Directory(client, s3BucketName, prefix);
+  }
 }

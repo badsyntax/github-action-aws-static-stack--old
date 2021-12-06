@@ -56,12 +56,23 @@ export function getInputs() {
     trimWhitespace: true,
   });
 
-  const removeExtensionFromHtmlFiles = Boolean(
+  const removeExtensionFromHtmlFiles =
     getInput('removeExtensionFromHtmlFiles', {
       required: true,
       trimWhitespace: true,
-    })
-  );
+    }).toLowerCase() === 'true';
+
+  const executeStackChangeSet =
+    getInput('executeStackChangeSet', {
+      required: true,
+      trimWhitespace: true,
+    }).toLowerCase() === 'true';
+
+  const deletePreviewSiteOnPRClose =
+    getInput('deletePreviewSiteOnPRClose', {
+      required: true,
+      trimWhitespace: true,
+    }).toLowerCase() === 'true';
 
   return {
     cfStackName,
@@ -76,5 +87,7 @@ export function getInputs() {
     previewUrlHost,
     lambdaVersion,
     removeExtensionFromHtmlFiles,
+    executeStackChangeSet,
+    deletePreviewSiteOnPRClose,
   };
 }

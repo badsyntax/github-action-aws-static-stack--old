@@ -40,9 +40,14 @@ inputs:
     required: true
     description: 'The Lambda Version. You must increment this version to deploy a new Lambda version. For example: "1.0.0"'
   removeExtensionFromHtmlFiles:
-    required: false
-    default: false
+    required: true
     description: 'Whether to remove the extension from HTML files, for example `/blog.html` will be renamed to `/blog` with the same response headers. This is useful for static websites that serve URLs without forward slashes.'
+  executeStackChangeSet:
+    required: true
+    description: 'Whether to generate & execute CloudFormation Change Sets'
+  deletePreviewSiteOnPRClose:
+    required: true
+    description: 'Whether to delete the preview site when a Pull Request is closed'
 runs:
   using: 'node16'
   main: 'dist/index.js'
