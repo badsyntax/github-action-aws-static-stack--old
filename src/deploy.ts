@@ -64,7 +64,7 @@ export async function deletePreviewSite(
   await emptyS3Directory(s3Client, s3BucketName, prefix);
   await deletePRComment(token);
   info(`Successfully removed preview site at ${prefix}`);
-  const invalidationPaths = [`${prefix}/*`];
+  const invalidationPaths = [`/${prefix}/*`];
   await invalidateCloudFrontCacheWithPaths(
     cloudFrontClient,
     distributionId,
