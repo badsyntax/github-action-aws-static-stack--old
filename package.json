@@ -25,9 +25,11 @@
   "keywords": [
     "actions",
     "node",
-    "setup"
+    "setup",
+    "aws",
+    "cloudfront"
   ],
-  "author": "",
+  "author": "Richard Willis <willis.rh@gmail.com>",
   "license": "MIT",
   "dependencies": {
     "@actions/core": "^1.6.0",

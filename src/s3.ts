@@ -14,7 +14,6 @@ import {
 import glob from '@actions/glob';
 import { info } from '@actions/core';
 import { previewPath, rootPath } from './constants.js';
-import { deletePRComment } from './github.js';
 
 export type S3ObjectPrefix = typeof rootPath | typeof previewPath;
 
