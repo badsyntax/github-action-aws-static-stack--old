@@ -42,9 +42,9 @@ inputs:
   removeExtensionFromHtmlFiles:
     required: true
     description: 'Whether to remove the extension from HTML files, for example `/blog.html` will be renamed to `/blog` with the same response headers. This is useful for static websites that serve URLs without forward slashes.'
-  executeStackChangeSet:
+  createStack:
     required: true
-    description: 'Whether to generate & execute CloudFormation Change Sets'
+    description: 'Whether to generate & execute the CloudFormation stack changesets'
   deletePreviewSiteOnPRClose:
     required: true
     description: 'Whether to delete the preview site when a Pull Request is closed'

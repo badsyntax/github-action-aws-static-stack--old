@@ -23,13 +23,14 @@ function getChangeSetTable(changes: Change[]): string {
   });
 }
 
-function getCommentMarkdown(
+function getStackChangesMessage(
   changes: Change[],
   changeSetTable: string,
-  previewUrlHost: string,
-  prBranchName: string
+  createStack: boolean
 ): string {
-  const previewUrl = `https://${prBranchName}.${previewUrlHost}`;
+  if (!createStack) {
+    return '';
+  }
   return `${
     changes.length
       ? `
@@ -38,9 +39,20 @@ function getCommentMarkdown(
   ${changeSetTable}
   `
       : `
-  (No Stack changes)`
-  }
+  (No Stack changes)
+`
+  }`;
+}
 
+function getCommentMarkdown(
+  changes: Change[],
+  changeSetTable: string,
+  previewUrlHost: string,
+  prBranchName: string,
+  createStack: boolean
+): string {
+  const previewUrl = `https://${prBranchName}.${previewUrlHost}`;
+  return `${getStackChangesMessage(changes, changeSetTable, createStack)}
   🎉 Preview site deployed to: [${previewUrl}](${previewUrl})
     `;
 }
@@ -78,14 +90,16 @@ export async function addPRCommentWithChangeSet(
   changes: Change[],
   previewUrlHost: string,
   prBranchName: string,
-  token: string
+  token: string,
+  createStack: boolean
 ): Promise<void> {
   const changeSetTable = getChangeSetTable(changes);
   const markdown = getCommentMarkdown(
     changes,
     changeSetTable,
     previewUrlHost,
-    prBranchName
+    prBranchName,
+    createStack
   );
 
   const issue = github.context.issue;

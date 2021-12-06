@@ -1,4 +1,4 @@
-import { debug, info, notice, setFailed, warning } from '@actions/core';
+import { info, notice, setFailed, warning } from '@actions/core';
 import github from '@actions/github';
 import {
   Change,
@@ -6,6 +6,7 @@ import {
   CloudFormationClient,
   Parameter,
 } from '@aws-sdk/client-cloudformation';
+import type { PullRequestEvent } from '@octokit/webhooks-definitions/schema';
 import { CloudFrontClient } from '@aws-sdk/client-cloudfront';
 import { S3Client } from '@aws-sdk/client-s3';
 
@@ -75,6 +76,7 @@ async function deploy(
   previewUrlHost: string,
   token: string,
   removeExtensionFromHtmlFiles: boolean,
+  createStack: boolean,
   changes: Change[],
   isPullRequest: boolean,
   prBranchName?: string
@@ -100,7 +102,8 @@ async function deploy(
       changes,
       previewUrlHost,
       prBranchName,
-      token
+      token,
+      createStack
     );
   } else {
     info('Deploying Root site...');
@@ -138,12 +141,9 @@ export async function run(): Promise<void> {
     const inputs = getInputs();
     const isPullRequest = github.context.eventName === 'pull_request';
     const isPullRequestClosed =
-      isPullRequest && github.context.action === 'closed';
+      isPullRequest &&
+      (github.context.payload as PullRequestEvent).action === 'closed';
     const prBranchName = github.context.payload.pull_request?.head.ref;
-
-    debug(`isPullRequest: ${isPullRequest}`);
-    debug(`isPullRequestClosed: ${isPullRequestClosed}`);
-    debug(`prBranchName: ${prBranchName}`);
 
     const cloudFormationClient = new CloudFormationClient({
       region,
@@ -181,12 +181,12 @@ export async function run(): Promise<void> {
         inputs.removeExtensionFromHtmlFiles
       );
 
-      if (!inputs.executeStackChangeSet) {
+      if (!inputs.createStack) {
         warning(
-          `Skipping Stack creation as executeStackChangeSet input is set to: ${inputs.executeStackChangeSet}`
+          `Skipping Stack creation as createStack input is set to: ${inputs.createStack}`
         );
       }
-      const changes = inputs.executeStackChangeSet
+      const changes = inputs.createStack
         ? await updateCloudFormationStack(
             cloudFormationClient,
             inputs.cfStackName,
@@ -204,6 +204,7 @@ export async function run(): Promise<void> {
         inputs.previewUrlHost,
         inputs.token,
         inputs.removeExtensionFromHtmlFiles,
+        inputs.createStack,
         changes,
         isPullRequest,
         prBranchName

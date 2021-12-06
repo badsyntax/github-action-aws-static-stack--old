@@ -62,8 +62,8 @@ export function getInputs() {
       trimWhitespace: true,
     }).toLowerCase() === 'true';
 
-  const executeStackChangeSet =
-    getInput('executeStackChangeSet', {
+  const createStack =
+    getInput('createStack', {
       required: true,
       trimWhitespace: true,
     }).toLowerCase() === 'true';
@@ -87,7 +87,7 @@ export function getInputs() {
     previewUrlHost,
     lambdaVersion,
     removeExtensionFromHtmlFiles,
-    executeStackChangeSet,
+    createStack,
     deletePreviewSiteOnPRClose,
   };
 }
