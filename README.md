@@ -1,7 +1,5 @@
 # AWS Static Stack GitHub Action
 
-TODO: optionally copy html files to extensionless
-
 A GitHub Action to deploy your static website to the AWS Edge 🔥.
 
 _CURRENTLY IN ALPHA - NOT FIT FOR PUBLIC USE_
