@@ -195,7 +195,7 @@ Resources:
           TargetOriginId: !Sub 's3-origin-${S3Bucket}'
           ViewerProtocolPolicy: 'redirect-to-https'
           LambdaFunctionAssociations:
-            - EventType: viewer-request
+            - EventType: origin-request
               LambdaFunctionARN: !GetAtt CFLambdaVersionPreviewUrl.FunctionArn
               IncludeBody: false
         PriceClass: 'PriceClass_All'
