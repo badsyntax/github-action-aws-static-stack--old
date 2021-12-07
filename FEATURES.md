@@ -12,3 +12,6 @@
 - [ ] Use origin-request instead of viewer-request for the preview lambda?
 - [ ] Support repository_dispatch & workflow_dispatch
 - [x] Update license and codeowners
+- [ ] Add comment as soon as changeset is created
+- [ ] Add cache invalidation paths to PR comment
+- [ ] Split cloudformation deploy logic into different action
