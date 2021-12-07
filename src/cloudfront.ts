@@ -91,6 +91,8 @@ export async function invalidateCloudFrontCacheWithPaths(
   paths: string[]
 ): Promise<void> {
   if (paths.length) {
+    info('Requesting a Cloudfront Cache Invalidation for the following paths:');
+    info(`${JSON.stringify(paths, null, 2)}`);
     const invalidationBatch: InvalidationBatch = {
       Paths: {
         Quantity: paths.length,
@@ -107,15 +109,13 @@ export async function invalidateCloudFrontCacheWithPaths(
     if (!output.Invalidation?.Id) {
       throw new Error('Invalid InvalidationCommand Output');
     }
-    info('Requested a Cloudfront Cache Invalidation, waiting...');
     await waitForInvalidationToComplete(
       client,
       distributionId,
       output.Invalidation.Id
     );
     info(
-      `Successfully invalidated CloudFront cache with ${paths.length} paths:`
+      `Successfully invalidated CloudFront cache with ${paths.length} paths`
     );
-    info(`${JSON.stringify(paths, null, 2)}`);
   }
 }
